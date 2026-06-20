@@ -1,9 +1,27 @@
-const tableName = 'categorias_obra';
-const idColumns = ['id_categoria'];
-const columns = [
-  'id_categoria',
-  'nombre',
-  'descripcion',
-];
+const factory = (sequelize, DataTypes) => {
+  const CategoriasObra = sequelize.define('CategoriasObra', {
+    id_categoria: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
+    nombre: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    descripcion: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+  }, {
+    tableName: 'categorias_obra',
+    timestamps: false,
+  });
 
-module.exports = { tableName, idColumns, columns };
+  return CategoriasObra;
+};
+
+factory.tableName = 'categorias_obra';
+factory.idColumns = ["id_categoria"];
+
+module.exports = factory;

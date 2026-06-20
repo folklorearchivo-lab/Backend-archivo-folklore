@@ -1,28 +1,37 @@
-const express = require('express');
-const helmet = require('helmet');
-const cors = require('cors');
-const morgan = require('morgan');
-const routes = require('./routes');
+const app = require('./app');
+const config = require('./config/env');
+const { testConnection, sequelize } = require('./config/database');
 
-const app = express();
-const port = process.env.PORT || 3000;
+const port = config.port || 3000;
 
-app.use(helmet());
-app.use(cors());
-app.use(express.json());
-app.use(morgan('dev'));
+async function startServer() {
+  // 1. Validar la conexión a la base de datos
+  const dbConnected = await testConnection();
+  if (!dbConnected) {
+    process.exit(1);
+  }
 
-app.use('/api', routes);
+  try {
+    // 2. Sincronizar modelos silenciosamente
+    await sequelize.sync();
+  } catch (err) {
+    console.error('❌ Database sync error:', err.message);
+  }
 
-app.use((req, res) => {
-  res.status(404).json({ error: 'Ruta no encontrada' });
-});
+  // 3. Iniciar la escucha del servidor de Express
+  const server = app.listen(port, () => {
+    console.log(`🚀 Server listening on port ${port}`);
+  });
 
-app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ error: 'Error interno del servidor', details: err.message });
-});
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`❌ Error: Port ${port} is already in use by another process.`);
+      process.exit(1);
+    } else {
+      console.error('❌ Error starting server:', err.message);
+      process.exit(1);
+    }
+  });
+}
 
-app.listen(port, () => {
-  console.log(`Servidor iniciado en http://localhost:${port}`);
-});
+startServer();

@@ -1,11 +1,35 @@
-const tableName = 'tipos_folklore';
-const idColumns = ['id_tipo_folklore'];
-const columns = [
-  'id_tipo_folklore',
-  'tipo',
-  'nombre',
-  'descripcion',
-  'id_parroquia',
-];
+const factory = (sequelize, DataTypes) => {
+  const Tipos = sequelize.define('Tipos', {
+    id_tipo_folklore: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
+    tipo: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    nombre: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    descripcion: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    id_parroquia: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+  }, {
+    tableName: 'tipos_folklore',
+    timestamps: false,
+  });
 
-module.exports = { tableName, idColumns, columns };
+  return Tipos;
+};
+
+factory.tableName = 'tipos_folklore';
+factory.idColumns = ["id_tipo_folklore"];
+
+module.exports = factory;

@@ -1,9 +1,27 @@
-const tableName = 'municipios';
-const idColumns = ['id_municipio'];
-const columns = [
-  'id_municipio',
-  'nombre',
-  'codigo_postal',
-];
+const factory = (sequelize, DataTypes) => {
+  const Municipios = sequelize.define('Municipios', {
+    id_municipio: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
+    nombre: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    codigo_postal: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+  }, {
+    tableName: 'municipios',
+    timestamps: false,
+  });
 
-module.exports = { tableName, idColumns, columns };
+  return Municipios;
+};
+
+factory.tableName = 'municipios';
+factory.idColumns = ["id_municipio"];
+
+module.exports = factory;

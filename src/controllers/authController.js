@@ -1,149 +1,285 @@
-const pool = require('../config/db');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
+const { Usuarios, Roles } = require('../models');
+const { hashPassword, verifyPassword } = require('../services/passwordService');
+const { signAccessToken } = require('../services/jwtService');
+const emailService = require('../services/emailService');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'secret_key_default';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
-
-// Configuración de Nodemailer
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-  port: process.env.EMAIL_PORT || 587,
-  secure: process.env.EMAIL_SECURE === 'true',
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
-});
-
-const sendWelcomeEmail = async (to, name) => {
+const register = async (req, res, next) => {
   try {
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.warn('Credenciales de email no configuradas. Saltando envío.');
-      return;
-    }
-    const mailOptions = {
-      from: `"Archivo Folklore" <${process.env.EMAIL_USER}>`,
-      to,
-      subject: '¡Bienvenido al Archivo Folklore!',
-      html: `
-        <div style="font-family: Arial, sans-serif; padding: 20px;">
-          <h2>Hola ${name},</h2>
-          <p>Gracias por registrarte. Tu cuenta ha sido creada exitosamente.</p>
-          <br/>
-          <p>Saludos,</p>
-          <p>El equipo de Archivo Folklore</p>
-        </div>
-      `
-    };
-    await transporter.sendMail(mailOptions);
-  } catch (error) {
-    console.error('Error enviando email:', error);
-  }
-};
+    const { primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, correo, password, id_rol, telefono } = req.body;
 
-const register = async (req, res) => {
-  try {
-    const { nombre_completo, correo, password, rol, telefono } = req.body;
-
-    if (!correo || !password || !nombre_completo) {
-      return res.status(400).json({ message: 'Faltan campos obligatorios' });
+    if (!correo || !password || !primer_nombre || !primer_apellido) {
+      return res.status(400).json({ error: 'Faltan campos obligatorios' });
     }
 
-    const { rows: existingUsers } = await pool.query('SELECT id_usuario FROM usuarios WHERE correo = $1', [correo]);
-    if (existingUsers.length > 0) {
-      return res.status(400).json({ message: 'El correo ya está registrado' });
+    const existingUser = await Usuarios.findOne({ where: { correo } });
+    if (existingUser) {
+      return res.status(400).json({ error: 'El correo ya está registrado' });
     }
 
-    const saltRounds = 10;
-    const password_hash = await bcrypt.hash(password, saltRounds);
+    // Determinar id_rol
+    let activeIdRol = id_rol;
+    if (!activeIdRol) {
+      const roleObj = await Roles.findOne({ where: { nombre_rol: 'usuario' } });
+      if (roleObj) {
+        activeIdRol = roleObj.id_rol;
+      }
+    }
 
-    const insertQuery = `
-      INSERT INTO usuarios (nombre_completo, correo, password_hash, rol, telefono, activo)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id_usuario, nombre_completo, correo, rol, activo
-    `;
-    const values = [nombre_completo, correo, password_hash, rol || 'usuario', telefono || null, true];
-    
-    const { rows } = await pool.query(insertQuery, values);
-    const newUser = rows[0];
+    const password_hash = await hashPassword(password);
 
-    // Enviar email
-    sendWelcomeEmail(newUser.correo, newUser.nombre_completo);
+    const newUser = await Usuarios.create({
+      primer_nombre,
+      segundo_nombre: segundo_nombre || null,
+      primer_apellido,
+      segundo_apellido: segundo_apellido || null,
+      correo,
+      password_hash,
+      id_rol: activeIdRol || null,
+      telefono: telefono || null,
+      activo: true,
+      fecha_registro: new Date(),
+    });
+
+    const userWithRole = await Usuarios.findByPk(newUser.id_usuario, {
+      include: [{ model: Roles, as: 'rolRel' }]
+    });
+
+    const plainUser = userWithRole.get({ plain: true });
+    delete plainUser.password_hash;
+
+    // Enviar email de bienvenida en segundo plano
+    const welcomeName = `${plainUser.primer_nombre} ${plainUser.primer_apellido}`;
+    emailService.sendWelcomeEmail(plainUser.correo, welcomeName)
+      .catch(err => console.error('Error enviando email de bienvenida:', err));
 
     res.status(201).json({
       message: 'Usuario registrado exitosamente',
-      user: newUser
+      user: plainUser,
     });
   } catch (error) {
-    console.error('Error en register:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    next(error);
   }
 };
 
-const login = async (req, res) => {
+const login = async (req, res, next) => {
   try {
     const { correo, password } = req.body;
 
     if (!correo || !password) {
-      return res.status(400).json({ message: 'Faltan campos obligatorios' });
+      return res.status(400).json({ error: 'Faltan campos obligatorios' });
     }
 
-    const { rows } = await pool.query('SELECT * FROM usuarios WHERE correo = $1', [correo]);
-    if (rows.length === 0) {
-      return res.status(401).json({ message: 'Credenciales inválidas' });
-    }
+    const user = await Usuarios.findOne({
+      where: { correo },
+      include: [{ model: Roles, as: 'rolRel' }]
+    });
 
-    const user = rows[0];
+    if (!user) {
+      return res.status(401).json({ error: 'Credenciales inválidas' });
+    }
 
     if (!user.activo) {
-      return res.status(401).json({ message: 'El usuario está inactivo' });
+      return res.status(401).json({ error: 'El usuario está inactivo' });
     }
 
-    const isValidPassword = await bcrypt.compare(password, user.password_hash);
+    const isValidPassword = await verifyPassword(password, user.password_hash);
     if (!isValidPassword) {
-      return res.status(401).json({ message: 'Credenciales inválidas' });
+      return res.status(401).json({ error: 'Credenciales inválidas' });
     }
 
-    await pool.query('UPDATE usuarios SET ultimo_acceso = NOW() WHERE id_usuario = $1', [user.id_usuario]);
+    // Actualizar la fecha de último acceso
+    await user.update({ ultimo_acceso: new Date() });
 
-    const token = jwt.sign(
-      { id_usuario: user.id_usuario, correo: user.correo, rol: user.rol },
-      JWT_SECRET,
-      { expiresIn: JWT_EXPIRES_IN }
-    );
+    const plainUser = user.get({ plain: true });
+    delete plainUser.password_hash;
 
-    delete user.password_hash;
+    const token = signAccessToken({
+      id_usuario: plainUser.id_usuario,
+      correo: plainUser.correo,
+      rol: user.rolRel ? user.rolRel.nombre_rol : 'usuario',
+    });
 
     res.status(200).json({
       message: 'Inicio de sesión exitoso',
-      user,
-      token
+      user: plainUser,
+      token,
     });
   } catch (error) {
-    console.error('Error en login:', error);
-    res.status(500).json({ message: 'Error interno del servidor' });
+    next(error);
   }
 };
 
 const verifyToken = (req, res) => {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ message: 'Token no proporcionado' });
+    return res.status(401).json({ error: 'Token no proporcionado' });
   }
 
   const token = authHeader.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const { verifyAccessToken } = require('../services/jwtService');
+    const decoded = verifyAccessToken(token);
     res.status(200).json({ message: 'Token válido', user: decoded });
   } catch (error) {
-    res.status(401).json({ message: 'Token inválido o expirado' });
+    res.status(401).json({ error: 'Token inválido o expirado' });
+  }
+};
+
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { correo } = req.body;
+    const user = await Usuarios.findOne({ where: { correo } });
+    if (!user) {
+      return res.status(200).json({
+        message: 'Si el correo está registrado, recibirás un token de recuperación pronto.'
+      });
+    }
+
+    const resetToken = signAccessToken(
+      { id_usuario: user.id_usuario, type: 'password-reset' },
+      { expiresIn: '1h' }
+    );
+
+    const welcomeName = `${user.primer_nombre} ${user.primer_apellido}`;
+    await emailService.sendResetPasswordEmail(user.correo, welcomeName, resetToken);
+
+    res.status(200).json({
+      message: 'Si el correo está registrado, recibirás un token de recuperación pronto.'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const resetPassword = async (req, res, next) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    let decoded;
+    try {
+      const { verifyAccessToken } = require('../services/jwtService');
+      decoded = verifyAccessToken(token);
+    } catch (err) {
+      return res.status(400).json({ error: 'Token inválido o expirado' });
+    }
+
+    if (decoded.type !== 'password-reset') {
+      return res.status(400).json({ error: 'Token inválido para esta operación' });
+    }
+
+    const user = await Usuarios.findByPk(decoded.id_usuario);
+    if (!user || !user.activo) {
+      return res.status(404).json({ error: 'Usuario no encontrado o inactivo' });
+    }
+
+    const new_password_hash = await hashPassword(newPassword);
+    await user.update({ password_hash: new_password_hash });
+
+    res.status(200).json({ message: 'Contraseña restablecida exitosamente' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getProfile = async (req, res, next) => {
+  try {
+    if (!req.auth || !req.auth.id_usuario) {
+      return res.status(401).json({ error: 'No autorizado' });
+    }
+
+    const user = await Usuarios.findByPk(req.auth.id_usuario, {
+      include: [{ model: Roles, as: 'rolRel' }]
+    });
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    const plainUser = user.get({ plain: true });
+    delete plainUser.password_hash;
+
+    res.status(200).json(plainUser);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateProfile = async (req, res, next) => {
+  try {
+    if (!req.auth || !req.auth.id_usuario) {
+      return res.status(401).json({ error: 'No autorizado' });
+    }
+
+    const { primer_nombre, segundo_nombre, primer_apellido, segundo_apellido, telefono, correo } = req.body;
+    const user = await Usuarios.findByPk(req.auth.id_usuario);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    if (correo && correo !== user.correo) {
+      const existingUser = await Usuarios.findOne({ where: { correo } });
+      if (existingUser) {
+        return res.status(400).json({ error: 'El correo electrónico ya está registrado por otro usuario' });
+      }
+      user.correo = correo;
+    }
+
+    if (primer_nombre) user.primer_nombre = primer_nombre;
+    if (segundo_nombre !== undefined) user.segundo_nombre = segundo_nombre;
+    if (primer_apellido) user.primer_apellido = primer_apellido;
+    if (segundo_apellido !== undefined) user.segundo_apellido = segundo_apellido;
+    if (telefono !== undefined) user.telefono = telefono;
+
+    await user.save();
+
+    const userWithRole = await Usuarios.findByPk(user.id_usuario, {
+      include: [{ model: Roles, as: 'rolRel' }]
+    });
+
+    const plainUser = userWithRole.get({ plain: true });
+    delete plainUser.password_hash;
+
+    res.status(200).json({
+      message: 'Perfil actualizado exitosamente',
+      user: plainUser
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const changePassword = async (req, res, next) => {
+  try {
+    if (!req.auth || !req.auth.id_usuario) {
+      return res.status(401).json({ error: 'No autorizado' });
+    }
+
+    const { currentPassword, newPassword } = req.body;
+    const user = await Usuarios.findByPk(req.auth.id_usuario);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    const isValidPassword = await verifyPassword(currentPassword, user.password_hash);
+    if (!isValidPassword) {
+      return res.status(400).json({ error: 'La contraseña actual es incorrecta' });
+    }
+
+    const new_password_hash = await hashPassword(newPassword);
+    await user.update({ password_hash: new_password_hash });
+
+    res.status(200).json({ message: 'Contraseña cambiada exitosamente' });
+  } catch (error) {
+    next(error);
   }
 };
 
 module.exports = {
   register,
   login,
-  verifyToken
+  verifyToken,
+  forgotPassword,
+  resetPassword,
+  getProfile,
+  updateProfile,
+  changePassword,
 };

@@ -20,10 +20,14 @@ const reportesRoutes = require('./reportesRoutes');
 const sesionesRoutes = require('./sesionesRoutes');
 const tiposFolkloreRoutes = require('./tiposFolkloreRoutes');
 const usuariosRoutes = require('./usuariosRoutes');
+const authRoutes = require('./authRoutes');
+const rolesRoutes = require('./rolesRoutes');
 
 const router = express.Router();
 
 const routeModules = [
+  authRoutes,
+  rolesRoutes,
   auditoriaRoutes,
   categoriasObraRoutes,
   cultoresRoutes,

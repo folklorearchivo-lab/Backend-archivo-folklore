@@ -1,0 +1,2618 @@
+{
+  "info": {
+    "_postman_id": "8c5cb637-29cb-4c91-9c60-c3d97fa25ab9",
+    "name": "Archivo Folklore API",
+    "description": "Colección de solicitudes para probar el backend refactorizado de la API del Archivo Folklore.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Autenticación",
+      "item": [
+        {
+          "name": "Registrar Usuario",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"primer_nombre\": \"Colaborador\",\n    \"segundo_nombre\": \"Prueba\",\n    \"primer_apellido\": \"Lara\",\n    \"segundo_apellido\": \"Silva\",\n    \"correo\": \"colaborador@folklore.com\",\n    \"password\": \"password123\",\n    \"id_rol\": 2,\n    \"telefono\": \"0414-1234567\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Iniciar Sesión (Login)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const responseJson = pm.response.json();",
+                  "if (responseJson.token) {",
+                  "    pm.environment.set(\"token\", responseJson.token);",
+                  "    console.log(\"Token guardado automáticamente en el entorno como 'token'\");",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"correo\": \"admin@folklore.com\",\n    \"password\": \"admin12345\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Verificar Token",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/verify",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "verify"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Recuperar Contraseña (Forgot Password)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"correo\": \"admin@folklore.com\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/forgot-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "forgot-password"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Restablecer Contraseña (Reset Password)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"token\": \"PEGAR_TOKEN_AQUI\",\n    \"newPassword\": \"admin12345_nueva\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/reset-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "reset-password"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Obtener Perfil",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "profile"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Actualizar Perfil",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"primer_nombre\": \"Administrador\",\n    \"segundo_nombre\": \"Principal\",\n    \"primer_apellido\": \"Lara\",\n    \"segundo_apellido\": \"Silva\",\n    \"telefono\": \"0424-9990000\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/profile",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "profile"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Cambiar Contraseña (Dentro de Sesión)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"currentPassword\": \"admin12345\",\n    \"newPassword\": \"admin12345_nueva\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/change-password",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "change-password"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Roles",
+      "item": [
+        {
+          "name": "List roles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/roles",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "roles"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get rol",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/roles/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "roles",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create rol",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"nombre_rol\": \"invitado\",\n    \"descripcion\": \"Rol para invitados temporales\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/roles",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "roles"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update rol",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"descripcion\": \"Rol para invitados temporales del sistema\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/roles/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "roles",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete rol",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/roles/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "roles",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Usuarios",
+      "item": [
+        {
+          "name": "List usuarios",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/usuarios",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "usuarios"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get usuario",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/usuarios/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "usuarios",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create usuario",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"primer_nombre\": \"Juan\",\n    \"segundo_nombre\": \"Carlos\",\n    \"primer_apellido\": \"Perez\",\n    \"segundo_apellido\": \"Gomez\",\n    \"correo\": \"juanperez@gmail.com\",\n    \"password\": \"juanpassword123\",\n    \"id_rol\": 3,\n    \"telefono\": \"0424-5556677\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/usuarios",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "usuarios"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update usuario",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"telefono\": \"0412-9998877\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/usuarios/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "usuarios",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete usuario",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/usuarios/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "usuarios",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auditoría",
+      "item": [
+        {
+          "name": "List auditoría",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auditoria",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auditoria"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get auditoría",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auditoria/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auditoria",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create auditoría",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id_usuario\": 1,\n    \"accion\": \"Inicio de Sesión\",\n    \"detalles\": \"El usuario inició sesión\",\n    \"ip_direccion\": \"127.0.0.1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auditoria",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auditoria"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update auditoría",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"detalles\": \"El usuario cerró sesión\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/auditoria/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auditoria",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete auditoría",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auditoria/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auditoria",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Categorías Obra",
+      "item": [
+        {
+          "name": "List categorías obra",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/categorias_obra",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categorias_obra"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get categoría obra",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/categorias_obra/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categorias_obra",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create categoría obra",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"nombre_categoria\": \"Pintura\",\n    \"descripcion\": \"Obras pictóricas tradicionales\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/categorias_obra",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categorias_obra"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update categoría obra",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"descripcion\": \"Obras pictóricas y esculturas\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/categorias_obra/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categorias_obra",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete categoría obra",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/categorias_obra/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "categorias_obra",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Municipios",
+      "item": [
+        {
+          "name": "List municipios",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/municipios",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "municipios"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get municipio",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/municipios/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "municipios",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create municipio",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"nombre\": \"Iribarren\",\n    \"codigo_postal\": \"3001\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/municipios",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "municipios"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update municipio",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"codigo_postal\": \"3002\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/municipios/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "municipios",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete municipio",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/municipios/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "municipios",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Parroquias",
+      "item": [
+        {
+          "name": "List parroquias",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/parroquias",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "parroquias"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get parroquia",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/parroquias/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "parroquias",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create parroquia",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id_municipio\": 1,\n    \"nombre\": \"Catedral\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/parroquias",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "parroquias"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update parroquia",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"nombre\": \"Catedral Central\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/parroquias/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "parroquias",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete parroquia",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/parroquias/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "parroquias",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Cultores",
+      "item": [
+        {
+          "name": "List cultores",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cultores",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cultores"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get cultor",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cultores/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cultores",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create cultor",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"cedula\": \"V-12345678\",\n    \"primer_nombre\": \"Pedro\",\n    \"segundo_nombre\": \"Antonio\",\n    \"primer_apellido\": \"Ramirez\",\n    \"segundo_apellido\": \"Gomez\",\n    \"fecha_nacimiento\": \"1965-05-15\",\n    \"genero\": \"Masculino\",\n    \"telefono_contacto\": \"0416-8889900\",\n    \"correo_contacto\": \"pedroramirez@gmail.com\",\n    \"direccion_residencia\": \"Barquisimeto, Estado Lara\",\n    \"id_parroquia\": 1,\n    \"resumen_curricular\": \"Cultor con amplia trayectoria.\",\n    \"estatus_vida\": \"Activo\",\n    \"esta_certificado\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/cultores",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cultores"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update cultor",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"direccion_residencia\": \"Nueva dirección, Santa Rosa\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/cultores/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cultores",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete cultor",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cultores/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cultores",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Tipos Folklore",
+      "item": [
+        {
+          "name": "List tipos folklore",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tipos_folklore",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tipos_folklore"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get tipo folklore",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tipos_folklore/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tipos_folklore",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create tipo folklore",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"nombre_tipo\": \"Danza\",\n    \"descripcion\": \"Bailes tradicionales\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/tipos_folklore",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tipos_folklore"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update tipo folklore",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"descripcion\": \"Bailes y danzas folklóricas\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/tipos_folklore/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tipos_folklore",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete tipo folklore",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tipos_folklore/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "tipos_folklore",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Manifestaciones Folklore",
+      "item": [
+        {
+          "name": "List manifestaciones folklore",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/manifestaciones_folklore",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "manifestaciones_folklore"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get manifestación folklore",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/manifestaciones_folklore/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "manifestaciones_folklore",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create manifestación folklore",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id_tipo_folklore\": 1,\n    \"nombre\": \"La Zaragoza\",\n    \"descripcion\": \"Celebración tradicional\",\n    \"id_parroquia\": 1,\n    \"vigencia_actual\": \"Vigente\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/manifestaciones_folklore",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "manifestaciones_folklore"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update manifestación folklore",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"descripcion\": \"Celebración tradicional del 28 de diciembre\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/manifestaciones_folklore/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "manifestaciones_folklore",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete manifestación folklore",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/manifestaciones_folklore/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "manifestaciones_folklore",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Cultor Manifestaciones",
+      "item": [
+        {
+          "name": "List cultor manifestaciones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cultor_manifestaciones",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cultor_manifestaciones"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get cultor manifestación",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cultor_manifestaciones/1/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cultor_manifestaciones",
+                "1",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create cultor manifestación",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id_cultor\": 1,\n    \"id_manifestacion\": 1,\n    \"rol_en_manifestacion\": \"Danzante Principal\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/cultor_manifestaciones",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cultor_manifestaciones"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update cultor manifestación",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"rol_en_manifestacion\": \"Organizador General\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/cultor_manifestaciones/1/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cultor_manifestaciones",
+                "1",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete cultor manifestación",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cultor_manifestaciones/1/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cultor_manifestaciones",
+                "1",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Oficios",
+      "item": [
+        {
+          "name": "List oficios",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/oficios",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "oficios"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get oficio",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/oficios/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "oficios",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create oficio",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"nombre_oficio\": \"Carpintería\",\n    \"descripcion\": \"Elaboración de objetos de madera\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/oficios",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "oficios"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update oficio",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"descripcion\": \"Elaboración y restauración de madera\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/oficios/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "oficios",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete oficio",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/oficios/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "oficios",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Cultor Oficios",
+      "item": [
+        {
+          "name": "List cultor oficios",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cultor_oficios",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cultor_oficios"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get cultor oficio",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cultor_oficios/1/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cultor_oficios",
+                "1",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create cultor oficio",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id_cultor\": 1,\n    \"id_oficio\": 1,\n    \"anos_experiencia\": 15\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/cultor_oficios",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cultor_oficios"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update cultor oficio",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"anos_experiencia\": 16\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/cultor_oficios/1/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cultor_oficios",
+                "1",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete cultor oficio",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cultor_oficios/1/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "cultor_oficios",
+                "1",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Documentos Cultor",
+      "item": [
+        {
+          "name": "List documentos cultor",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/documentos_cultor",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "documentos_cultor"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get documento cultor",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/documentos_cultor/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "documentos_cultor",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create documento cultor",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id_cultor\": 1,\n    \"tipo_documento\": \"Cédula Identidad\",\n    \"ruta_archivo\": \"uploads/cedula.pdf\",\n    \"descripcion\": \"Copia digitalizada\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/documentos_cultor",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "documentos_cultor"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update documento cultor",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"descripcion\": \"Copia digitalizada en color\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/documentos_cultor/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "documentos_cultor",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete documento cultor",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/documentos_cultor/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "documentos_cultor",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Exposiciones",
+      "item": [
+        {
+          "name": "List exposiciones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/exposiciones",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "exposiciones"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get exposición",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/exposiciones/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "exposiciones",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create exposición",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"nombre_exposicion\": \"Galería del Folklore\",\n    \"descripcion\": \"Exposición de obras\",\n    \"fecha_inicio\": \"2026-06-01\",\n    \"fecha_fin\": \"2026-06-30\",\n    \"lugar\": \"Centro Cultural\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/exposiciones",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "exposiciones"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update exposición",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"lugar\": \"Galería de Arte Principal\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/exposiciones/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "exposiciones",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete exposición",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/exposiciones/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "exposiciones",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Exposicion Manifestaciones",
+      "item": [
+        {
+          "name": "List exposicion manifestaciones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/exposicion_manifestaciones",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "exposicion_manifestaciones"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get exposición manifestación",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/exposicion_manifestaciones/1/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "exposicion_manifestaciones",
+                "1",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create exposición manifestación",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id_exposicion\": 1,\n    \"id_manifestacion\": 1,\n    \"detalles_participacion\": \"Demostración en vivo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/exposicion_manifestaciones",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "exposicion_manifestaciones"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update exposición manifestación",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"detalles_participacion\": \"Demostración de baile tradicional\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/exposicion_manifestaciones/1/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "exposicion_manifestaciones",
+                "1",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete exposición manifestación",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/exposicion_manifestaciones/1/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "exposicion_manifestaciones",
+                "1",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Exposicion Obras",
+      "item": [
+        {
+          "name": "List exposicion obras",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/exposicion_obras",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "exposicion_obras"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get exposición obra",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/exposicion_obras/1/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "exposicion_obras",
+                "1",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create exposición obra",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id_exposicion\": 1,\n    \"id_obra\": 1,\n    \"ubicacion_en_sala\": \"Pared Norte\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/exposicion_obras",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "exposicion_obras"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update exposición obra",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"ubicacion_en_sala\": \"Pared Este\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/exposicion_obras/1/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "exposicion_obras",
+                "1",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete exposición obra",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/exposicion_obras/1/1",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "exposicion_obras",
+                "1",
+                "1"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Obras",
+      "item": [
+        {
+          "name": "List obras",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/obras",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "obras"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get obra",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/obras/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "obras",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create obra",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"titulo\": \"Cuatro Larense\",\n    \"id_cultor\": 1,\n    \"id_categoria\": 1,\n    \"id_parroquia\": 1,\n    \"tipo_patrimonio\": \"Material Mueble\",\n    \"descripcion_historica\": \"Instrumento tallado a mano.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/obras",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "obras"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update obra",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"titulo\": \"Cuatro Larense de Colección\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/obras/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "obras",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete obra",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/obras/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "obras",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Fe de Vida",
+      "item": [
+        {
+          "name": "List fe de vida",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/fe_de_vida",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "fe_de_vida"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get fe de vida",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/fe_de_vida/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "fe_de_vida",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create fe de vida",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id_cultor\": 1,\n    \"fecha_emision\": \"2026-06-20\",\n    \"ruta_documento\": \"uploads/fe_de_vida.pdf\",\n    \"observaciones\": \"Vigente\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/fe_de_vida",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "fe_de_vida"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update fe de vida",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"observaciones\": \"Renovado\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/fe_de_vida/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "fe_de_vida",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete fe de vida",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/fe_de_vida/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "fe_de_vida",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Multimedia",
+      "item": [
+        {
+          "name": "List multimedia",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/multimedia",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "multimedia"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get multimedia",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/multimedia/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "multimedia",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create multimedia",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id_cultor\": 1,\n    \"tipo_archivo\": \"Imagen\",\n    \"ruta_archivo\": \"uploads/foto.jpg\",\n    \"descripcion\": \"Foto de perfil\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/multimedia",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "multimedia"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update multimedia",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"descripcion\": \"Foto de perfil actualizada\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/multimedia/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "multimedia",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete multimedia",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/multimedia/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "multimedia",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Reportes",
+      "item": [
+        {
+          "name": "List reportes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reportes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reportes"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get reporte",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reportes/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reportes",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create reporte",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id_usuario_generador\": 1,\n    \"tipo_reporte\": \"Censo\",\n    \"formato\": \"PDF\",\n    \"ruta_archivo\": \"reports/report.pdf\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/reportes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reportes"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update reporte",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"formato\": \"XLSX\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/reportes/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reportes",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete reporte",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/reportes/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "reportes",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Sesiones",
+      "item": [
+        {
+          "name": "List sesiones",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/sesiones",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "sesiones"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Get sesión",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/sesiones/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "sesiones",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Create sesión",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id_usuario\": 1,\n    \"token_sesion\": \"token_abc\",\n    \"ip_address\": \"127.0.0.1\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/sesiones",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "sesiones"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Update sesión",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"token_sesion\": \"token_new_xyz\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{base_url}}/sesiones/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "sesiones",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Delete sesión",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/sesiones/:id",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "sesiones",
+                ":id"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:3000/api",
+      "type": "string"
+    }
+  ]
+}

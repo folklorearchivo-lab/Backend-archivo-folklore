@@ -1,13 +1,43 @@
-const tableName = 'sesiones';
-const idColumns = ['id_sesion'];
-const columns = [
-  'id_sesion',
-  'id_usuario',
-  'token_hash',
-  'ip_acceso',
-  'fecha_inicio',
-  'fecha_expira',
-  'activa',
-];
+const factory = (sequelize, DataTypes) => {
+  const Sesiones = sequelize.define('Sesiones', {
+    id_sesion: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+    },
+    id_usuario: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+    },
+    token_hash: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    ip_acceso: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    fecha_inicio: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    fecha_expira: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
+    activa: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+  }, {
+    tableName: 'sesiones',
+    timestamps: false,
+  });
 
-module.exports = { tableName, idColumns, columns };
+  return Sesiones;
+};
+
+factory.tableName = 'sesiones';
+factory.idColumns = ["id_sesion"];
+
+module.exports = factory;
