@@ -7,8 +7,22 @@ const connectionOptions = {
   pool: {
     max: 5,
     min: 0,
-    acquire: 30000,
+    acquire: 20000,
     idle: 10000
+  },
+  // Reintenta automáticamente queries que fallen por cortes de red transitorios (p.ej. VPN)
+  retry: {
+    max: 3,
+    match: [
+      /ETIMEDOUT/,
+      /ECONNRESET/,
+      /ECONNREFUSED/,
+      /EHOSTUNREACH/,
+      /ENOTFOUND/,
+      /ConnectionError/,
+      /ConnectionRefusedError/,
+      /ConnectionTimedOutError/
+    ]
   }
 };
 
@@ -16,6 +30,8 @@ const connectionOptions = {
 const needSsl = config.db.ssl || (config.db.host && config.db.host.includes('neon.tech')) || (config.db.url && config.db.url.includes('sslmode=require'));
 if (needSsl) {
   connectionOptions.dialectOptions = {
+    // Evita que un intento de conexión se quede colgado indefinidamente si la VPN bloquea Neon
+    connectTimeout: 10000,
     ssl: {
       require: true,
       rejectUnauthorized: false
@@ -50,7 +66,7 @@ async function testConnection() {
     console.log('✅ Database connection has been established successfully.');
     return true;
   } catch (error) {
-    console.error('❌ Connection error:', error.message);
+    console.error('❌ Connection error (¿VPN activa bloqueando Neon?):', error.message);
     return false;
   }
 }
