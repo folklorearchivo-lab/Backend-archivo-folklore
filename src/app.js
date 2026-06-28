@@ -11,9 +11,18 @@ const app = express();
 
 // Middlewares de seguridad y logs
 app.use(helmet());
+// Orígenes permitidos: la web pública (vite-project) y el dashboard administrativo
+// (frontend_archivo). Ambos corren con Vite en modo dev y por defecto usan el puerto
+// 5173 — si los dos están abiertos al mismo tiempo, Vite asigna 5174 al segundo.
+// Se listan ambos puertos para cubrir cualquiera de los dos casos.
+const ALLOWED_ORIGINS = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+];
+
 app.use(cors({
-  origin: '*', // Permitir peticiones desde cualquier origen (configurable)
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  origin: ALLOWED_ORIGINS,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(morgan('dev'));

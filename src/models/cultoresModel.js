@@ -65,6 +65,10 @@ const factory = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: true,
     },
+    estatus: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
     esta_certificado: {
       type: DataTypes.BOOLEAN,
       allowNull: true,

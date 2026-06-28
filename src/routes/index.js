@@ -13,6 +13,7 @@ const feDeVidaRoutes = require('./feDeVidaRoutes');
 const manifestacionesRoutes = require('./manifestacionesRoutes');
 const multimediaRoutes = require('./multimediaRoutes');
 const municipiosRoutes = require('./municipiosRoutes');
+const notificacionesRoutes = require('./notificacionesRoutes');
 const obrasRoutes = require('./obrasRoutes');
 const oficiosRoutes = require('./oficiosRoutes');
 const parroquiasRoutes = require('./parroquiasRoutes');
@@ -41,6 +42,7 @@ const routeModules = [
   manifestacionesRoutes,
   multimediaRoutes,
   municipiosRoutes,
+  notificacionesRoutes,
   obrasRoutes,
   oficiosRoutes,
   parroquiasRoutes,

@@ -14,6 +14,7 @@ const FeDeVida = require('./feDeVidaModel')(sequelize, Sequelize.DataTypes);
 const Manifestaciones = require('./manifestacionesModel')(sequelize, Sequelize.DataTypes);
 const Multimedia = require('./multimediaModel')(sequelize, Sequelize.DataTypes);
 const Municipios = require('./municipiosModel')(sequelize, Sequelize.DataTypes);
+const Notificaciones = require('./notificacionesModel')(sequelize, Sequelize.DataTypes);
 const Obras = require('./obrasModel')(sequelize, Sequelize.DataTypes);
 const Oficios = require('./oficiosModel')(sequelize, Sequelize.DataTypes);
 const Parroquias = require('./parroquiasModel')(sequelize, Sequelize.DataTypes);
@@ -68,6 +69,10 @@ Manifestaciones.belongsTo(Parroquias, { foreignKey: 'id_parroquia', as: 'parroqu
 Multimedia.belongsTo(Cultores, { foreignKey: 'id_cultor', as: 'cultor', allowNull: true });
 Multimedia.belongsTo(Obras, { foreignKey: 'id_obra', as: 'obra', allowNull: true });
 Multimedia.belongsTo(Manifestaciones, { foreignKey: 'id_manifestacion', as: 'manifestacion', allowNull: true });
+
+// Relaciones: Notificaciones <-> Usuarios
+Notificaciones.belongsTo(Usuarios, { foreignKey: 'id_usuario', as: 'usuario' });
+Usuarios.hasMany(Notificaciones, { foreignKey: 'id_usuario', as: 'notificaciones' });
 
 // Relaciones: Sesiones <-> Usuarios
 Sesiones.belongsTo(Usuarios, { foreignKey: 'id_usuario', as: 'usuario' });
@@ -150,6 +155,7 @@ module.exports = {
   Manifestaciones,
   Multimedia,
   Municipios,
+  Notificaciones,
   Obras,
   Oficios,
   Parroquias,

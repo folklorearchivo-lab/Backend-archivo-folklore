@@ -1,7 +1,7 @@
+const crypto = require('crypto');
 const { Usuarios, Roles } = require('../models');
 const { hashPassword, verifyPassword } = require('../services/passwordService');
 const { signAccessToken } = require('../services/jwtService');
-const emailService = require('../services/emailService');
 
 const register = async (req, res, next) => {
   try {
@@ -47,10 +47,9 @@ const register = async (req, res, next) => {
     const plainUser = userWithRole.get({ plain: true });
     delete plainUser.password_hash;
 
-    // Enviar email de bienvenida en segundo plano
-    const welcomeName = `${plainUser.primer_nombre} ${plainUser.primer_apellido}`;
-    emailService.sendWelcomeEmail(plainUser.correo, welcomeName)
-      .catch(err => console.error('Error enviando email de bienvenida:', err));
+    // El correo de bienvenida ya no lo envía el backend (migrado a EmailJS en el
+    // frontend). El frontend ya tiene en `user.correo`/`user.primer_nombre` todo
+    // lo necesario para disparar la plantilla correspondiente tras recibir esta respuesta.
 
     res.status(201).json({
       message: 'Usuario registrado exitosamente',
@@ -131,49 +130,91 @@ const forgotPassword = async (req, res, next) => {
     const user = await Usuarios.findOne({ where: { correo } });
     if (!user) {
       return res.status(200).json({
-        message: 'Si el correo está registrado, recibirás un token de recuperación pronto.'
+        message: 'Si el correo está registrado, se generará una nueva contraseña temporal.'
       });
     }
 
-    const resetToken = signAccessToken(
-      { id_usuario: user.id_usuario, type: 'password-reset' },
-      { expiresIn: '1h' }
-    );
-
-    const welcomeName = `${user.primer_nombre} ${user.primer_apellido}`;
-    await emailService.sendResetPasswordEmail(user.correo, welcomeName, resetToken);
+    // Sin plantilla de correo disponible (límite del plan gratuito de EmailJS): en vez
+    // de un token de un solo uso, se genera la contraseña definitiva de una vez y se
+    // devuelve en esta respuesta para que el frontend la muestre en pantalla.
+    //
+    // ADVERTENCIA DE SEGURIDAD: esto es más sensible que el flujo anterior con token.
+    // Cualquiera que conozca un correo registrado puede llamar este endpoint público
+    // y CAMBIAR la contraseña de esa cuenta de inmediato (bloqueando al dueño real),
+    // recibiendo la nueva clave en la respuesta. No hay rate-limiting ni verificación
+    // de identidad. Aceptable solo para esta demo controlada; antes de producción
+    // hay que agregar al menos límite de intentos por IP/correo.
+    const passwordTemporal = crypto.randomBytes(9).toString('base64url');
+    const password_hash = await hashPassword(passwordTemporal);
+    await user.update({ password_hash });
 
     res.status(200).json({
-      message: 'Si el correo está registrado, recibirás un token de recuperación pronto.'
+      message: 'Contraseña temporal generada exitosamente.',
+      passwordTemporal,
+      nombre: `${user.primer_nombre} ${user.primer_apellido}`,
     });
   } catch (error) {
     next(error);
   }
 };
 
+// Solicitud de recuperación con token real persistido en BD + enlace por correo
+// (vía EmailJS desde el frontend). Reemplaza al flujo de forgotPassword (que generaba
+// la contraseña directamente porque entonces no había plantilla de correo disponible).
+const olvidePassword = async (req, res, next) => {
+  try {
+    const { correo } = req.body;
+    const user = await Usuarios.findOne({ where: { correo } });
+
+    const mensajeGenerico = 'Si el correo está registrado, recibirás un enlace de recuperación.';
+    if (!user) {
+      // Mismo mensaje exista o no la cuenta, para no filtrar qué correos están registrados.
+      return res.status(200).json({ message: mensajeGenerico });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    const resetExpires = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
+
+    await user.update({
+      reset_password_token: resetToken,
+      reset_password_expires: resetExpires,
+    });
+
+    // ADVERTENCIA DE SEGURIDAD: el token viaja en esta respuesta porque el correo se
+    // envía desde el frontend (EmailJS), no desde el servidor. A diferencia del token
+    // JWT que se usaba antes, este SÍ queda invalidado en BD tras usarse una vez
+    // (ver resetPassword) y expira al cabo de 1 hora aunque nunca se use.
+    res.status(200).json({
+      message: mensajeGenerico,
+      resetToken,
+      nombre: `${user.primer_nombre} ${user.primer_apellido}`,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Confirma el restablecimiento: valida el token contra BD (existencia + expiración),
+// actualiza la contraseña y limpia el token para que no pueda reutilizarse.
 const resetPassword = async (req, res, next) => {
   try {
     const { token, newPassword } = req.body;
 
-    let decoded;
-    try {
-      const { verifyAccessToken } = require('../services/jwtService');
-      decoded = verifyAccessToken(token);
-    } catch (err) {
-      return res.status(400).json({ error: 'Token inválido o expirado' });
+    const user = await Usuarios.findOne({ where: { reset_password_token: token } });
+    if (!user) {
+      return res.status(400).json({ error: 'Token inválido o ya utilizado' });
     }
 
-    if (decoded.type !== 'password-reset') {
-      return res.status(400).json({ error: 'Token inválido para esta operación' });
-    }
-
-    const user = await Usuarios.findByPk(decoded.id_usuario);
-    if (!user || !user.activo) {
-      return res.status(404).json({ error: 'Usuario no encontrado o inactivo' });
+    if (!user.reset_password_expires || user.reset_password_expires < new Date()) {
+      return res.status(400).json({ error: 'El token de recuperación expiró. Solicita uno nuevo.' });
     }
 
     const new_password_hash = await hashPassword(newPassword);
-    await user.update({ password_hash: new_password_hash });
+    await user.update({
+      password_hash: new_password_hash,
+      reset_password_token: null,
+      reset_password_expires: null,
+    });
 
     res.status(200).json({ message: 'Contraseña restablecida exitosamente' });
   } catch (error) {
@@ -278,6 +319,7 @@ module.exports = {
   login,
   verifyToken,
   forgotPassword,
+  olvidePassword,
   resetPassword,
   getProfile,
   updateProfile,

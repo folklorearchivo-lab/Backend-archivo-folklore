@@ -39,14 +39,21 @@ const usuariosUpdateSchema = usuariosCreateSchema.partial().strict();
 
 const cultoresCreateSchema = z.object({
   id_usuario: positiveInt.optional().nullable(),
-  cedula: z.string().min(5).max(15),
+  // Formato exigido por el selector V-/E- del frontend (ManualCultorForm.jsx, RegisterForm.jsx):
+  // letra + guion + 6 a 9 dígitos. Ej. V-12345678
+  cedula: z.string().regex(/^[VE]-\d{6,9}$/, 'Formato esperado: V-12345678 o E-12345678'),
   primer_nombre: z.string().min(2).max(50),
   segundo_nombre: z.string().max(50).optional().nullable(),
   primer_apellido: z.string().min(2).max(50),
   segundo_apellido: z.string().max(50).optional().nullable(),
   fecha_nacimiento: isoDate.optional().nullable(),
   genero: z.string().max(10).optional().nullable(),
-  telefono_contacto: z.string().max(20).optional().nullable(),
+  // Formato exigido por el selector de prefijo del frontend: prefijo venezolano válido +
+  // guion + 7 dígitos. Ej. 0414-1234567
+  telefono_contacto: z.string()
+    .regex(/^(0414|0424|0416|0426|0412|0422|0276)-\d{7}$/, 'Formato esperado: 0414-1234567 (prefijo venezolano válido + 7 dígitos)')
+    .optional()
+    .nullable(),
   correo_contacto: z.string().email().optional().nullable(),
   direccion_residencia: z.string().optional().nullable(),
   id_parroquia: positiveInt.optional().nullable(),
@@ -61,6 +68,13 @@ const cultoresCreateSchema = z.object({
 
 const cultoresUpdateSchema = cultoresCreateSchema.partial().strict();
 
+const estatusSchema = z.object({
+  estatus: z.enum(['pendiente', 'aprobado', 'rechazado']),
+}).strict();
+
+// Campos de control de aprobación (estatus, observaciones_admin, fecha_aprobacion,
+// id_usuario_registro) quedan FUERA de este esquema a propósito: el cliente que crea
+// una obra (visitante o cultor) nunca debe poder fijarlos; los asigna el servidor.
 const obrasCreateSchema = z.object({
   titulo: z.string().min(2).max(150),
   id_cultor: positiveInt,
@@ -79,14 +93,13 @@ const obrasCreateSchema = z.object({
   valor_estimado: z.coerce.number().optional().nullable(),
   codigo_qr_link: z.string().max(255).optional().nullable(),
   destacado_galeria: z.boolean().optional(),
-  estatus: z.string().max(20).optional().nullable(),
-  observaciones_admin: z.string().optional().nullable(),
-  id_usuario_registro: positiveInt.optional().nullable(),
-  fecha_postulacion: isoDate.optional().nullable(),
-  fecha_aprobacion: isoDate.optional().nullable(),
 }).strict();
 
-const obrasUpdateSchema = obrasCreateSchema.partial().strict();
+// El admin sí puede tocar estos campos vía PUT (todo menos el estatus, que tiene su
+// propio PATCH dedicado para mantener ese cambio auditable y separado).
+const obrasUpdateSchema = obrasCreateSchema.partial().extend({
+  observaciones_admin: z.string().optional().nullable(),
+}).strict();
 
 const manifestacionesCreateSchema = z.object({
   id_tipo_folklore: positiveInt,
@@ -134,6 +147,7 @@ module.exports = {
   cultoresUpdateSchema,
   obrasCreateSchema,
   obrasUpdateSchema,
+  estatusSchema,
   manifestacionesCreateSchema,
   manifestacionesUpdateSchema,
   forgotPasswordSchema,

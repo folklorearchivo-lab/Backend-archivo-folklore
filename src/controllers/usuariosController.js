@@ -1,6 +1,5 @@
 const { Usuarios, Roles } = require('../models');
 const { hashPassword } = require('../services/passwordService');
-const emailService = require('../services/emailService');
 const crypto = require('crypto');
 
 // Listar todos los registros
@@ -56,9 +55,12 @@ exports.create = async (req, res, next) => {
     const plain = itemWithRole.get({ plain: true });
     delete plain.password_hash;
 
-    if (generatedPassword && plain.correo) {
-      // Send email asynchronously without blocking the response heavily
-      emailService.sendCredentialsEmail(plain.correo, plain.primer_nombre, generatedPassword).catch(console.error);
+    // El correo de credenciales se migró a EmailJS en el frontend. Se devuelve la
+    // contraseña autogenerada SOLO en esta respuesta puntual (nunca se persiste en
+    // texto plano) para que el dashboard del admin dispare la plantilla y/o la
+    // muestre en pantalla, como ya hace UsersManagement.jsx.
+    if (generatedPassword) {
+      plain.password_creada = generatedPassword;
     }
 
     res.status(201).json(plain);
