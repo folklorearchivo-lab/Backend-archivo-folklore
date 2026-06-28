@@ -102,10 +102,13 @@ exports.create = async (req, res, next) => {
 // Compartido por updateEstatus (aprobación manual de un pendiente) e ingresoManual
 // (alta directa ya aprobada) para no duplicar esta lógica en dos lugares.
 async function crearUsuarioParaCultor(cultor, t) {
-  let rolCultor = await Roles.findOne({ where: { nombre_rol: 'cultor' }, transaction: t });
+  let rolCultor = await Roles.findOne({ 
+    where: sequelize.where(sequelize.fn('lower', sequelize.col('nombre_rol')), 'cultor'), 
+    transaction: t 
+  });
   if (!rolCultor) {
     rolCultor = await Roles.create(
-      { nombre_rol: 'cultor', descripcion: 'Rol de cultor' },
+      { nombre_rol: 'Cultor', descripcion: 'Rol de cultor' },
       { transaction: t }
     );
   }

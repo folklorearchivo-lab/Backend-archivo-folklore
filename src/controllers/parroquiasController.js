@@ -60,3 +60,17 @@ exports.remove = exports.delete = async (req, res, next) => {
     next(err);
   }
 };
+
+// Obtener parroquias por id_municipio
+exports.getByMunicipio = async (req, res, next) => {
+  try {
+    const { id_municipio } = req.params;
+    const items = await Parroquias.findAll({
+      where: { id_municipio },
+      order: [['nombre', 'ASC']]
+    });
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+};
