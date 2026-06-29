@@ -34,6 +34,38 @@ const factory = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: true,
       defaultValue: 'San Cristóbal, Estado Táchira, Venezuela'
+    },
+    hero_imagen: {
+      type: DataTypes.STRING(2048),
+      allowNull: true
+    },
+    about_imagen: {
+      type: DataTypes.STRING(2048),
+      allowNull: true
+    },
+    login_titulo: {
+      type: DataTypes.STRING(2048),
+      allowNull: true,
+      defaultValue: 'Inicio de Sesión'
+    },
+    login_subtitulo: {
+      type: DataTypes.STRING(2048),
+      allowNull: true,
+      defaultValue: 'Patrimonio Cultural Luis Felipe Ramón y Rivera'
+    },
+    login_top_label: {
+      type: DataTypes.STRING(2048),
+      allowNull: true,
+      defaultValue: 'Ministerio de Cultura'
+    },
+    login_bottom_label: {
+      type: DataTypes.STRING(2048),
+      allowNull: true,
+      defaultValue: 'Sistema de Gestión y Control Patrimonial'
+    },
+    login_imagen: {
+      type: DataTypes.STRING(2048),
+      allowNull: true
     }
   }, {
     tableName: 'configuracion_web',

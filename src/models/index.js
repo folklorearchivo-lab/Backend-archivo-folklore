@@ -59,6 +59,9 @@ CategoriasObra.hasMany(Obras, { foreignKey: 'id_categoria', as: 'obras' });
 // Relaciones: Obras <-> Parroquias
 Obras.belongsTo(Parroquias, { foreignKey: 'id_parroquia', as: 'parroquia' });
 
+// Relaciones: Obras <-> Multimedia
+Obras.hasMany(Multimedia, { foreignKey: 'id_obra', as: 'multimedia' });
+
 // Relaciones: Manifestaciones <-> Tipos (tipo de folklore)
 Manifestaciones.belongsTo(Tipos, { foreignKey: 'id_tipo_folklore', as: 'tipoFolklore' });
 Tipos.hasMany(Manifestaciones, { foreignKey: 'id_tipo_folklore', as: 'manifestaciones' });

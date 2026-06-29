@@ -1,4 +1,4 @@
-const { Obras, Exposiciones, ExposicionObras, Cultores } = require('../models');
+const { Obras, Exposiciones, ExposicionObras, Cultores, Multimedia } = require('../models');
 
 // Obtener todas las obras que están marcadas para mostrarse en la web pública
 exports.getGaleriaPublica = async (req, res, next) => {
@@ -7,11 +7,17 @@ exports.getGaleriaPublica = async (req, res, next) => {
       where: {
         destacado_galeria: 'si'
       },
-      include: [{
-        model: Cultores,
-        as: 'cultor',
-        attributes: ['nombre', 'apellido']
-      }]
+      include: [
+        {
+          model: Cultores,
+          as: 'cultor',
+          attributes: ['primer_nombre', 'primer_apellido']
+        },
+        {
+          model: Multimedia,
+          as: 'multimedia'
+        }
+      ]
     });
     res.json(obras);
   } catch (err) {
@@ -39,7 +45,11 @@ exports.getExposicionActiva = async (req, res, next) => {
     
     if (obrasIds.length > 0) {
       obras = await Obras.findAll({
-        where: { id_obra: obrasIds }
+        where: { id_obra: obrasIds },
+        include: [
+          { model: Multimedia, as: 'multimedia' },
+          { model: Cultores, as: 'cultor' }
+        ]
       });
     }
 

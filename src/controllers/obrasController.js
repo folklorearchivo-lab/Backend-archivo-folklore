@@ -1,9 +1,10 @@
-const { Obras } = require('../models');
+const { Obras, Multimedia, Cultores, CategoriasObra } = require('../models');
 
-const ESTATUS_VALIDOS = ['pendiente', 'aprobado', 'rechazado'];
+const ESTATUS_VALIDOS = ['pendiente', 'aprobado', 'rechazado', 'eliminado'];
+const { Op } = require('sequelize');
 
 // Listar todos los registros (uso administrativo, requireAuth)
-// Admite ?estatus=pendiente|aprobado|rechazado para filtrar; sin el query param, devuelve todo.
+// Admite ?estatus=pendiente|aprobado|rechazado|eliminado para filtrar; sin el query param, devuelve todo excepto 'eliminado'.
 exports.list = exports.getAll = async (req, res, next) => {
   try {
     const { estatus } = req.query;
@@ -13,21 +14,32 @@ exports.list = exports.getAll = async (req, res, next) => {
         return res.status(400).json({ error: `estatus inválido. Use uno de: ${ESTATUS_VALIDOS.join(', ')}` });
       }
       where.estatus = estatus;
+    } else {
+      where.estatus = { [Op.ne]: 'eliminado' };
     }
-    const items = await Obras.findAll({ where });
+    const items = await Obras.findAll({
+      where,
+      include: [
+        { model: Multimedia, as: 'multimedia' },
+        { model: Cultores, as: 'cultor' },
+        { model: CategoriasObra, as: 'categoria' }
+      ]
+    });
     res.json(items);
   } catch (err) {
     next(err);
   }
 };
 
-// Listado público (sin auth): SIEMPRE fuerza estatus = 'aprobado' en el servidor,
-// sin importar lo que el cliente intente mandar por query string. Oculta notas internas.
 exports.getPublico = async (req, res, next) => {
   try {
     const items = await Obras.findAll({
       where: { estatus: 'aprobado' },
       attributes: { exclude: ['observaciones_admin'] },
+      include: [
+        { model: Multimedia, as: 'multimedia' },
+        { model: Cultores, as: 'cultor' }
+      ]
     });
     res.json(items);
   } catch (err) {
@@ -38,7 +50,13 @@ exports.getPublico = async (req, res, next) => {
 // Obtener un registro por ID
 exports.get = exports.getById = async (req, res, next) => {
   try {
-    const item = await Obras.findByPk(req.params.id_obra || req.params.id);
+    const item = await Obras.findByPk(req.params.id_obra || req.params.id, {
+      include: [
+        { model: Multimedia, as: 'multimedia' },
+        { model: Cultores, as: 'cultor' },
+        { model: CategoriasObra, as: 'categoria' }
+      ]
+    });
     if (!item) {
       return res.status(404).json({ error: 'Registro no encontrado en obras' });
     }
@@ -53,10 +71,28 @@ exports.get = exports.getById = async (req, res, next) => {
 // y aquí se fija explícitamente quién registra y cuándo se postuló.
 exports.create = async (req, res, next) => {
   try {
+    // Calcular el siguiente código correlativo de inventario (ej. IP-003)
+    const allPieces = await Obras.findAll({ attributes: ['codigo_qr_link'] });
+    let maxNum = 0;
+    allPieces.forEach(p => {
+      if (p.codigo_qr_link && p.codigo_qr_link.toUpperCase().startsWith('IP-')) {
+        const num = parseInt(p.codigo_qr_link.toUpperCase().replace('IP-', ''), 10);
+        if (!isNaN(num) && num > maxNum) {
+          maxNum = num;
+        }
+      }
+    });
+    const nextCode = `IP-${String(maxNum + 1).padStart(3, '0')}`;
+
+    const isValidador = req.auth?.rol?.toLowerCase() === 'administrador';
+    const estatusInicial = isValidador ? 'aprobado' : 'pendiente';
+
     const item = await Obras.create({
       ...req.body,
+      codigo_qr_link: nextCode,
       id_usuario_registro: req.auth?.id_usuario ?? null,
       fecha_postulacion: new Date(),
+      estatus: estatusInicial,
     });
     res.status(201).json(item);
   } catch (err) {
@@ -93,14 +129,14 @@ exports.updateEstatus = async (req, res, next) => {
   }
 };
 
-// Eliminar un registro
+// Eliminar un registro (Eliminación Lógica)
 exports.remove = exports.delete = async (req, res, next) => {
   try {
     const item = await Obras.findByPk(req.params.id_obra || req.params.id);
     if (!item) {
       return res.status(404).json({ error: 'Registro no encontrado en obras' });
     }
-    await item.destroy();
+    await item.update({ estatus: 'eliminado' });
     res.status(204).end();
   } catch (err) {
     next(err);
