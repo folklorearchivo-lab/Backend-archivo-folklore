@@ -77,7 +77,7 @@ const estatusSchema = z.object({
 // una obra (visitante o cultor) nunca debe poder fijarlos; los asigna el servidor.
 const obrasCreateSchema = z.object({
   titulo: z.string().min(2).max(150),
-  id_cultor: positiveInt,
+  id_cultor: positiveInt.optional().nullable(),
   id_categoria: positiveInt.optional().nullable(),
   id_parroquia: positiveInt.optional().nullable(),
   tipo_patrimonio: z.string().max(50).optional().nullable(),
