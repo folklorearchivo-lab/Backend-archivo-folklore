@@ -42,6 +42,7 @@ const cultoresCreateSchema = z.object({
   // Formato exigido por el selector V-/E- del frontend (ManualCultorForm.jsx, RegisterForm.jsx):
   // letra + guion + 6 a 9 dígitos. Ej. V-12345678
   cedula: z.string().regex(/^[VE]-\d{6,9}$/, 'Formato esperado: V-12345678 o E-12345678'),
+  seudonimo: z.string().max(100).optional().nullable(),
   primer_nombre: z.string().min(2).max(50),
   segundo_nombre: z.string().max(50).optional().nullable(),
   primer_apellido: z.string().min(2).max(50),
@@ -138,6 +139,33 @@ const updateProfileSchema = z.object({
   correo: z.string().email().optional(),
 }).strict();
 
+// Esquema para que el cultor actualice sus propios datos personales (PATCH /mi-perfil).
+// Solo permite los camposde información personal seguros — nunca estatus, id_usuario, etc.
+const cultoresMiPerfilUpdateSchema = z.object({
+  primer_nombre: z.string().min(2).max(50).optional(),
+  segundo_nombre: z.string().max(50).optional().nullable(),
+  primer_apellido: z.string().min(2).max(50).optional(),
+  segundo_apellido: z.string().max(50).optional().nullable(),
+  seudonimo: z.string().max(100).optional().nullable(),
+  fecha_nacimiento: isoDate.optional().nullable(),
+  genero: z.string().max(10).optional().nullable(),
+  telefono_contacto: z.string()
+    .regex(/^(0414|0424|0416|0426|0412|0422|0276)-\d{7}$/, 'Formato esperado: 0414-1234567')
+    .optional()
+    .nullable(),
+  correo_contacto: z.string().email().optional().nullable(),
+  direccion_residencia: z.string().optional().nullable(),
+  id_parroquia: positiveInt.optional().nullable(),
+  resumen_curricular: z.string().optional().nullable(),
+  trayectoria_documentada: z.string().optional().nullable(),
+  esta_certificado: z.boolean().optional(),
+}).strict();
+
+// Esquema para agregar texto al resumen curricular (appending).
+const appendCurriculumSchema = z.object({
+  texto: z.string().min(1, 'El texto a agregar no puede estar vacío').max(5000),
+}).strict();
+
 module.exports = {
   authRegisterSchema,
   authLoginSchema,
@@ -145,6 +173,8 @@ module.exports = {
   usuariosUpdateSchema,
   cultoresCreateSchema,
   cultoresUpdateSchema,
+  cultoresMiPerfilUpdateSchema,
+  appendCurriculumSchema,
   obrasCreateSchema,
   obrasUpdateSchema,
   estatusSchema,

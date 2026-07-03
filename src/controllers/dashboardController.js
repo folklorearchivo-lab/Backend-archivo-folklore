@@ -147,12 +147,28 @@ exports.getReportesResumen = async (req, res, next) => {
       Obras.findAll({
         where: { estatus: { [Op.ne]: 'eliminado' } },
         attributes: ['id_obra'],
-        include: [{
-          model: Parroquias,
-          as: 'parroquia',
-          attributes: ['nombre'],
-          include: [{ model: Municipios, as: 'municipio', attributes: ['nombre'] }],
-        }],
+        include: [
+          {
+            model: Parroquias,
+            as: 'parroquia',
+            attributes: ['nombre'],
+            required: false,
+            include: [{ model: Municipios, as: 'municipio', attributes: ['nombre'], required: false }],
+          },
+          {
+            model: Cultores,
+            as: 'cultor',
+            attributes: ['id_cultor'],
+            required: false,
+            include: [{
+              model: Parroquias,
+              as: 'parroquia',
+              attributes: ['nombre'],
+              required: false,
+              include: [{ model: Municipios, as: 'municipio', attributes: ['nombre'], required: false }],
+            }],
+          },
+        ],
       }),
       Obras.findAll({
         where: { estatus: { [Op.ne]: 'eliminado' }, fecha_postulacion: { [Op.ne]: null } },
@@ -161,20 +177,25 @@ exports.getReportesResumen = async (req, res, next) => {
     ]);
 
     // Patrimonio por municipio: se parte de TODOS los municipios en la BD (con 0 obras),
-    // luego se suman las obras reales que tienen parroquia asociada a cada uno.
-    // El porcentaje se calcula sobre el total de obras CON ubicación registrada.
+    // luego se suman las obras reales que tienen parroquia+municipio asociado.
+    // El porcentaje se calcula sobre el TOTAL de obras del inventario (incluyendo las
+    // que no tienen ubicación registrada) para que el porcentaje sea preciso.
     const conteoPorMunicipio = new Map(todosMunicipios.map((m) => [m.nombre, 0]));
     obrasConUbicacion.forEach((obra) => {
-      const nombre = obra.parroquia?.municipio?.nombre;
+      // Prioridad 1: municipio de la parroquia propia de la obra
+      // Prioridad 2: municipio de la parroquia del cultor asociado (fallback)
+      const nombre = obra.parroquia?.municipio?.nombre
+        || obra.cultor?.parroquia?.municipio?.nombre;
       if (!nombre) return;
       conteoPorMunicipio.set(nombre, (conteoPorMunicipio.get(nombre) || 0) + 1);
     });
-    const totalConUbicacion = Math.max(1, [...conteoPorMunicipio.values()].reduce((s, n) => s + n, 0));
+    // Denominador = total real de obras en el inventario (no solo las con ubicación)
+    const totalObrasBase = Math.max(1, totalObras);
     const patrimonioPorMunicipio = Array.from(conteoPorMunicipio.entries())
       .map(([municipio, cantidad]) => ({
         municipio,
         cantidad,
-        porcentaje: Math.round((cantidad / totalConUbicacion) * 100),
+        porcentaje: Math.round((cantidad / totalObrasBase) * 100),
       }))
       // Ordenar: primero los que tienen obras (mayor a menor), luego los que tienen 0 (alfabético)
       .sort((a, b) => {

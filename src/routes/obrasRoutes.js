@@ -22,5 +22,6 @@ router.put('/:id_obra', requireAuth, validateZod({ params: makeParamIdSchema('id
 router.patch('/:id_obra/estatus', requireAuth, requireRole('Administrador'), validateZod({ params: makeParamIdSchema('id_obra'), body: estatusSchema }), controller.updateEstatus);
 router.patch('/:id_obra/destacado', requireAuth, requireRole('Administrador'), controller.updateDestacado);
 router.delete('/:id_obra', requireAuth, validateZod({ params: makeParamIdSchema('id_obra') }), controller.delete);
+router.post('/:id_obra/delete', requireAuth, controller.deleteWithPassword);
 
 module.exports = { path: '/obras', router };

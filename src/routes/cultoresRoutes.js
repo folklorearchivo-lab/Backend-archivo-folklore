@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/cultoresController');
-const { requireAuth, requireRole } = require('../middlewares/authMiddleware');
+const { requireAuth, requireRole, requireOwnCultorOrAdmin } = require('../middlewares/authMiddleware');
 const { validateZod } = require('../middlewares/validateZod');
 const { makeParamIdSchema } = require('../validators/commonSchemas');
-const { cultoresCreateSchema, cultoresUpdateSchema, estatusSchema } = require('../validators/domainSchemas');
+const { cultoresCreateSchema, cultoresUpdateSchema, cultoresMiPerfilUpdateSchema, appendCurriculumSchema, estatusSchema } = require('../validators/domainSchemas');
 
 // Ruta pública (sin auth): la web pública solo ve cultores ya aprobados.
 // Debe declararse ANTES de '/:id_cultor' para que Express no la confunda con un id.
@@ -26,9 +26,15 @@ router.post('/', validateZod({ body: cultoresCreateSchema }), controller.create)
 // auto-aprobación inmediata (al contrario de POST '/', que siempre queda 'pendiente').
 router.post('/ingreso-manual', requireAuth, requireRole('administrador'), validateZod({ body: cultoresCreateSchema }), controller.ingresoManual);
 
+// Autoservicio del cultor: editar su propio perfil y agregar items al currículum.
+// requireOwnCultorOrAdmin verifica que sea el dueño del registro o un admin.
+router.patch('/mi-perfil', requireAuth, requireOwnCultorOrAdmin, validateZod({ body: cultoresMiPerfilUpdateSchema }), controller.updateMiPerfil);
+router.patch('/mi-perfil/curriculum', requireAuth, requireOwnCultorOrAdmin, validateZod({ body: appendCurriculumSchema }), controller.appendCurriculum);
+
 // Rutas de escritura protegidas (gestión administrativa)
-router.put('/:id_cultor', requireAuth, validateZod({ params: makeParamIdSchema('id_cultor'), body: cultoresUpdateSchema }), controller.update);
+router.put('/:id_cultor', requireAuth, requireRole('administrador'), validateZod({ params: makeParamIdSchema('id_cultor'), body: cultoresUpdateSchema }), controller.update);
 router.patch('/:id_cultor/estatus', requireAuth, requireRole('administrador'), validateZod({ params: makeParamIdSchema('id_cultor'), body: estatusSchema }), controller.updateEstatus);
+router.patch('/:id_cultor/activar', requireAuth, requireRole('administrador'), validateZod({ params: makeParamIdSchema('id_cultor') }), controller.toggleActivo);
 router.delete('/:id_cultor', requireAuth, validateZod({ params: makeParamIdSchema('id_cultor') }), controller.delete);
 
 module.exports = { path: '/cultores', router };

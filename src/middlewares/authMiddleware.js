@@ -35,7 +35,49 @@ function requireRole(roles) {
   };
 }
 
+// Middleware: permite acceso si el usuario es administrador o si el registro de
+// cultor (identificado por req.params.id_cultor o por req.auth.id_usuario) le
+// pertenece. Usado en rutas donde el cultor puede editar su propio perfil.
+async function requireOwnCultorOrAdmin(req, res, next) {
+  if (!req.auth) {
+    return res.status(401).json({ message: 'No autenticado' });
+  }
+
+  // Admin siempre pasa
+  if (req.auth.rol && req.auth.rol.toLowerCase() === 'administrador') {
+    return next();
+  }
+
+  try {
+    const { Cultores } = require('../models');
+    const idCultor = req.params.id_cultor;
+
+    if (idCultor) {
+      const cultor = await Cultores.findByPk(idCultor);
+      if (!cultor) {
+        return res.status(404).json({ error: 'Registro no encontrado en cultores' });
+      }
+      if (cultor.id_usuario !== req.auth.id_usuario) {
+        return res.status(403).json({ message: 'No tienes permiso para modificar este registro' });
+      }
+      req.cultor = cultor;
+    } else {
+      // Sin id_cultor en la ruta: asumimos /mi-perfil, buscamos por id_usuario
+      const cultor = await Cultores.findOne({ where: { id_usuario: req.auth.id_usuario } });
+      if (!cultor) {
+        return res.status(404).json({ error: 'No existe un registro de cultor vinculado a esta cuenta.' });
+      }
+      req.cultor = cultor;
+    }
+
+    return next();
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
 module.exports = {
   requireAuth,
   requireRole,
+  requireOwnCultorOrAdmin,
 };

@@ -13,6 +13,10 @@ const factory = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: true,
     },
+    seudonimo: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
     primer_nombre: {
       type: DataTypes.STRING,
       allowNull: false,

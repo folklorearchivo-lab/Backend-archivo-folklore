@@ -237,15 +237,68 @@ exports.updateEstatus = async (req, res, next) => {
   }
 };
 
-// Eliminar un registro (Eliminación Lógica)
+// Eliminar un registro (Eliminación Física de la BD)
 exports.remove = exports.delete = async (req, res, next) => {
   try {
     const item = await Obras.findByPk(req.params.id_obra || req.params.id);
     if (!item) {
       return res.status(404).json({ error: 'Registro no encontrado en obras' });
     }
-    await item.update({ estatus: 'eliminado' });
+
+    const { Multimedia, ExposicionObras } = require('../models');
+
+    // 1. Eliminar multimedia asociada
+    await Multimedia.destroy({ where: { id_obra: item.id_obra } });
+
+    // 2. Eliminar relaciones con exposiciones
+    await ExposicionObras.destroy({ where: { id_obra: item.id_obra } });
+
+    // 3. Eliminar la obra de la BD
+    await item.destroy();
+
     res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Eliminar un registro previa verificación de contraseña del administrador
+exports.deleteWithPassword = async (req, res, next) => {
+  try {
+    const { password } = req.body;
+    if (!password) {
+      return res.status(400).json({ error: 'Debes proporcionar tu contraseña para eliminar la obra.' });
+    }
+
+    // Verificar la contraseña del usuario autenticado
+    const { verifyPassword } = require('../services/passwordService');
+    const user = await require('../models').Usuarios.findByPk(req.auth.id_usuario);
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado' });
+    }
+
+    const isValid = await verifyPassword(password, user.password_hash);
+    if (!isValid) {
+      return res.status(403).json({ error: 'La contraseña ingresada es incorrecta.' });
+    }
+
+    const item = await Obras.findByPk(req.params.id_obra || req.params.id);
+    if (!item) {
+      return res.status(404).json({ error: 'Registro no encontrado en obras' });
+    }
+
+    const { Multimedia, ExposicionObras } = require('../models');
+
+    // 1. Eliminar multimedia asociada
+    await Multimedia.destroy({ where: { id_obra: item.id_obra } });
+
+    // 2. Eliminar relaciones con exposiciones
+    await ExposicionObras.destroy({ where: { id_obra: item.id_obra } });
+
+    // 3. Eliminar la obra de la BD
+    await item.destroy();
+
+    res.status(200).json({ message: 'Obra eliminada exitosamente' });
   } catch (err) {
     next(err);
   }

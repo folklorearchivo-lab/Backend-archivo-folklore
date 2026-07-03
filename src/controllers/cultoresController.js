@@ -1,8 +1,21 @@
 const crypto = require('crypto');
-const { Cultores, Usuarios, Roles, Parroquias, sequelize } = require('../models');
+const { Cultores, Usuarios, Roles, Parroquias, Municipios, sequelize } = require('../models');
 const { hashPassword } = require('../services/passwordService');
 
 const ESTATUS_VALIDOS = ['pendiente', 'aprobado', 'rechazado'];
+
+// Include reutilizable: parroquia + municipio + usuario (activo)
+const INCLUDE_COMPLETO = [{
+  model: Parroquias,
+  as: 'parroquia',
+  attributes: ['id_parroquia', 'nombre'],
+  include: [{ model: Municipios, as: 'municipio', attributes: ['id_municipio', 'nombre'] }],
+}, {
+  model: Usuarios,
+  as: 'usuario',
+  attributes: ['activo'],
+  required: false,
+}];
 
 // Campos sensibles que la web pública nunca debe recibir
 const CAMPOS_OCULTOS_PUBLICO = [
@@ -27,7 +40,7 @@ exports.list = exports.getAll = async (req, res, next) => {
     }
     const items = await Cultores.findAll({
       where,
-      include: [{ model: Parroquias, as: 'parroquia', attributes: ['id_parroquia', 'nombre'] }],
+      include: INCLUDE_COMPLETO,
     });
     res.json(items);
   } catch (err) {
@@ -42,7 +55,12 @@ exports.getMiPerfil = async (req, res, next) => {
   try {
     const cultor = await Cultores.findOne({
       where: { id_usuario: req.auth.id_usuario },
-      include: [{ model: Parroquias, as: 'parroquia', attributes: ['id_parroquia', 'nombre'] }],
+      include: [{
+        model: Parroquias,
+        as: 'parroquia',
+        attributes: ['id_parroquia', 'nombre'],
+        include: [{ model: Municipios, as: 'municipio', attributes: ['id_municipio', 'nombre'] }],
+      }],
     });
     if (!cultor) {
       return res.status(404).json({ error: 'No existe un registro de cultor vinculado a esta cuenta.' });
@@ -237,6 +255,75 @@ exports.updateEstatus = async (req, res, next) => {
     }
 
     res.json(respuesta);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// El cultor actualiza sus propios datos personales (PATCH /cultores/mi-perfil).
+// Solo permite modificar campos de información personal seguros — nunca estatus,
+// id_usuario, fecha_registro, etc. El middleware requireOwnCultorOrAdmin ya verificó
+// que el req.auth.id_usuario es el dueño del registro o es admin.
+exports.updateMiPerfil = async (req, res, next) => {
+  try {
+    // req.cultor fue asignado por requireOwnCultorOrAdmin
+    const cultor = req.cultor || await Cultores.findOne({ where: { id_usuario: req.auth.id_usuario } });
+    if (!cultor) {
+      return res.status(404).json({ error: 'No existe un registro de cultor vinculado a esta cuenta.' });
+    }
+
+    const cambios = {};
+    // Solo se tocan los campos que vienen en el body
+    for (const campo of Object.keys(req.body)) {
+      cambios[campo] = req.body[campo];
+    }
+
+    if (Object.keys(cambios).length === 0) {
+      return res.status(400).json({ error: 'No se enviaron campos válidos para actualizar.' });
+    }
+
+    await cultor.update(cambios);
+    res.json(cultor);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Añade texto al resumen_curricular del cultor logueado (appending).
+exports.appendCurriculum = async (req, res, next) => {
+  try {
+    const cultor = req.cultor || await Cultores.findOne({ where: { id_usuario: req.auth.id_usuario } });
+    if (!cultor) {
+      return res.status(404).json({ error: 'No existe un registro de cultor vinculado a esta cuenta.' });
+    }
+
+    const { texto } = req.body;
+    const anterior = cultor.resumen_curricular || '';
+    const nuevo = anterior ? `${anterior}\n\n${texto.trim()}` : texto.trim();
+    await cultor.update({ resumen_curricular: nuevo });
+    res.json(cultor);
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Activar / desactivar el usuario vinculado al cultor (toggle activo).
+// Solo para administradores. Requiere que el cultor tenga un id_usuario asociado.
+exports.toggleActivo = async (req, res, next) => {
+  try {
+    const cultor = await Cultores.findByPk(req.params.id_cultor, {
+      include: [{ model: Usuarios, as: 'usuario', attributes: ['id_usuario', 'activo'] }],
+    });
+    if (!cultor) {
+      return res.status(404).json({ error: 'Registro no encontrado en cultores' });
+    }
+    if (!cultor.usuario) {
+      return res.status(400).json({ error: 'Este cultor no tiene un usuario vinculado.' });
+    }
+
+    const nuevoValor = !cultor.usuario.activo;
+    await cultor.usuario.update({ activo: nuevoValor });
+    res.json({ id_cultor: cultor.id_cultor, activo: nuevoValor });
   } catch (err) {
     next(err);
   }
