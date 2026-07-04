@@ -78,7 +78,7 @@ const login = async (req, res, next) => {
     }
 
     if (!user.activo) {
-      return res.status(401).json({ error: 'El usuario está inactivo' });
+      return res.status(401).json({ error: 'Su usuario está inactivo. Por favor, contacte a la administración del archivo para reactivarlo.' });
     }
 
     const isValidPassword = await verifyPassword(password, user.password_hash);

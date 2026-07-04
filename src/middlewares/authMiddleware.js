@@ -35,6 +35,37 @@ function requireRole(roles) {
   };
 }
 
+// Middleware: verifica que el usuario autenticado esté activo.
+// Debe usarse DESPUÉS de requireAuth (req.auth debe existir).
+// Los administradores SIEMPRE pasan (nunca se bloquean a sí mismos).
+async function requireActivo(req, res, next) {
+  if (!req.auth) {
+    return res.status(401).json({ message: 'No autenticado' });
+  }
+
+  // Admin siempre pasa
+  if (req.auth.rol && req.auth.rol.toLowerCase() === 'administrador') {
+    return next();
+  }
+
+  try {
+    const { Usuarios } = require('../models');
+    const user = await Usuarios.findByPk(req.auth.id_usuario, {
+      attributes: ['activo'],
+    });
+
+    if (!user || !user.activo) {
+      return res.status(403).json({
+        error: 'Su usuario está inactivo. Por favor, contacte a la administración del archivo para reactivarlo.',
+      });
+    }
+
+    return next();
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
 // Middleware: permite acceso si el usuario es administrador o si el registro de
 // cultor (identificado por req.params.id_cultor o por req.auth.id_usuario) le
 // pertenece. Usado en rutas donde el cultor puede editar su propio perfil.
@@ -80,4 +111,5 @@ module.exports = {
   requireAuth,
   requireRole,
   requireOwnCultorOrAdmin,
+  requireActivo,
 };

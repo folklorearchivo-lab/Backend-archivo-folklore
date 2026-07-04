@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const controller = require('../controllers/cultoresController');
-const { requireAuth, requireRole, requireOwnCultorOrAdmin } = require('../middlewares/authMiddleware');
+const { requireAuth, requireRole, requireOwnCultorOrAdmin, requireActivo } = require('../middlewares/authMiddleware');
 const { validateZod } = require('../middlewares/validateZod');
 const { makeParamIdSchema } = require('../validators/commonSchemas');
 const { cultoresCreateSchema, cultoresUpdateSchema, cultoresMiPerfilUpdateSchema, appendCurriculumSchema, estatusSchema } = require('../validators/domainSchemas');
@@ -28,8 +28,9 @@ router.post('/ingreso-manual', requireAuth, requireRole('administrador'), valida
 
 // Autoservicio del cultor: editar su propio perfil y agregar items al currículum.
 // requireOwnCultorOrAdmin verifica que sea el dueño del registro o un admin.
-router.patch('/mi-perfil', requireAuth, requireOwnCultorOrAdmin, validateZod({ body: cultoresMiPerfilUpdateSchema }), controller.updateMiPerfil);
-router.patch('/mi-perfil/curriculum', requireAuth, requireOwnCultorOrAdmin, validateZod({ body: appendCurriculumSchema }), controller.appendCurriculum);
+// requireActivo bloquea a cultores inactivos (el admin siempre pasa).
+router.patch('/mi-perfil', requireAuth, requireActivo, requireOwnCultorOrAdmin, validateZod({ body: cultoresMiPerfilUpdateSchema }), controller.updateMiPerfil);
+router.patch('/mi-perfil/curriculum', requireAuth, requireActivo, requireOwnCultorOrAdmin, validateZod({ body: appendCurriculumSchema }), controller.appendCurriculum);
 
 // Rutas de escritura protegidas (gestión administrativa)
 router.put('/:id_cultor', requireAuth, requireRole('administrador'), validateZod({ params: makeParamIdSchema('id_cultor'), body: cultoresUpdateSchema }), controller.update);

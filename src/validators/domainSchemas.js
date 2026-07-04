@@ -37,7 +37,7 @@ const usuariosCreateSchema = z.object({
 
 const usuariosUpdateSchema = usuariosCreateSchema.partial().strict();
 
-const cultoresCreateSchema = z.object({
+const cultoresBaseSchema = z.object({
   id_usuario: positiveInt.optional().nullable(),
   // Formato exigido por el selector V-/E- del frontend (ManualCultorForm.jsx, RegisterForm.jsx):
   // letra + guion + 6 a 9 dígitos. Ej. V-12345678
@@ -67,7 +67,31 @@ const cultoresCreateSchema = z.object({
   datos_censo_adicionales: z.any().optional(),
 }).strict();
 
-const cultoresUpdateSchema = cultoresCreateSchema.partial().strict();
+const cultoresCreateSchema = cultoresBaseSchema.superRefine((data, ctx) => {
+  if (data.fecha_nacimiento) {
+    const edad = Math.floor((Date.now() - new Date(data.fecha_nacimiento).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+    if (edad < 12) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Debes tener al menos 12 años de edad para registrarte.',
+        path: ['fecha_nacimiento'],
+      });
+    }
+  }
+});
+
+const cultoresUpdateSchema = cultoresBaseSchema.partial().strict().superRefine((data, ctx) => {
+  if (data.fecha_nacimiento) {
+    const edad = Math.floor((Date.now() - new Date(data.fecha_nacimiento).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+    if (edad < 12) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Debes tener al menos 12 años de edad para registrarte.',
+        path: ['fecha_nacimiento'],
+      });
+    }
+  }
+});
 
 const estatusSchema = z.object({
   estatus: z.enum(['pendiente', 'aprobado', 'rechazado']),

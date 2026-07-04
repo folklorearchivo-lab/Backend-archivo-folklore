@@ -10,6 +10,7 @@ const upload = require('../middlewares/uploadMiddleware');
 router.get('/', controller.getAll);
 router.get('/:id_documento', controller.getById);
 router.post('/', controller.create);
+router.post('/validar-cedula', upload.single('archivo'), controller.validarCedulaImagen);
 router.post('/cedula', upload.single('archivo'), controller.uploadCedula);
 router.put('/:id_documento', controller.update);
 router.delete('/:id_documento', controller.delete);

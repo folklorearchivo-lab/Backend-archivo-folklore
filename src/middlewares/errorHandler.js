@@ -17,12 +17,13 @@ function errorHandler(err, req, res, next) {
 
   // Error de validación de esquemas Zod
   if (err instanceof ZodError) {
+    const issues = err.issues.map((issue) => ({
+      campo: issue.path.join('.') || 'petición',
+      mensaje: issue.message,
+    }));
     return res.status(400).json({
-      error: 'Error de validación',
-      errors: err.issues.map((issue) => ({
-        campo: issue.path.join('.') || 'petición',
-        mensaje: issue.message,
-      })),
+      error: issues.length === 1 ? issues[0].mensaje : 'Error de validación',
+      errors: issues,
     });
   }
 

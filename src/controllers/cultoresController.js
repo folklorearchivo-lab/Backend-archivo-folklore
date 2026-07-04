@@ -104,12 +104,55 @@ exports.get = exports.getById = async (req, res, next) => {
 // esta es la ruta pública, sin auth; el auto-aprobado vive en ingresoManual.
 exports.create = async (req, res, next) => {
   try {
+    const { cedula, correo_contacto, fecha_nacimiento } = req.body;
+
+    if (cedula) {
+      const existeCedula = await Cultores.findOne({ where: { cedula } });
+      if (existeCedula) {
+        return res.status(409).json({
+          error: 'La cédula ya se encuentra registrada en el sistema.',
+          campo: 'cedula',
+        });
+      }
+    }
+
+    if (correo_contacto) {
+      const existeCorreo = await Cultores.findOne({ where: { correo_contacto } });
+      if (existeCorreo) {
+        return res.status(409).json({
+          error: 'El correo ya se encuentra registrado en el sistema.',
+          campo: 'correo_contacto',
+        });
+      }
+    }
+
+    if (fecha_nacimiento) {
+      const edad = Math.floor((Date.now() - new Date(fecha_nacimiento).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+      if (edad < 12) {
+        return res.status(400).json({
+          error: 'Debes tener al menos 12 años de edad para registrarte.',
+          campo: 'fecha_nacimiento',
+        });
+      }
+    }
+
     const item = await Cultores.create({
       ...req.body,
       fecha_registro: new Date(),
     });
     res.status(201).json(item);
   } catch (err) {
+    if (err.name === 'SequelizeUniqueConstraintError') {
+      const campo = err.fields ? Object.keys(err.fields)[0] : 'dato';
+      const mensajes = {
+        cedula: 'La cédula ya se encuentra registrada en el sistema.',
+        correo_contacto: 'El correo ya se encuentra registrado en el sistema.',
+      };
+      return res.status(409).json({
+        error: mensajes[campo] || 'El dato ya se encuentra registrado.',
+        campo,
+      });
+    }
     next(err);
   }
 };

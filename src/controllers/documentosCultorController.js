@@ -1,5 +1,6 @@
 const { DocumentosCultor } = require('../models');
 const { subirBuffer } = require('../services/cloudinaryService');
+const { validarCedula } = require('../services/ocrService');
 
 // Listar todos los registros
 exports.list = exports.getAll = async (req, res, next) => {
@@ -48,8 +49,46 @@ exports.update = async (req, res, next) => {
   }
 };
 
+// Valida mediante OCR que la imagen sea una Cédula de Identidad venezolana,
+// SIN crear ningún registro. Útil para validar antes de enviar el formulario.
+exports.validarCedulaImagen = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Debes adjuntar un archivo de imagen.' });
+    }
+
+    const { valido, coincidencias, cedulaExtraida, nombresExtraidos } = await validarCedula(req.file.buffer);
+
+    if (!valido) {
+      const motivos = [];
+      if (!coincidencias.palabrasClave) {
+        motivos.push('No se encontraron las frases "REPÚBLICA BOLIVARIANA DE VENEZUELA" o "CÉDULA DE IDENTIDAD"');
+      }
+      if (!coincidencias.numeroIdentidad) {
+        motivos.push('No se encontró un número de cédula con formato V-12345678 o E-12345678');
+      }
+      return res.status(422).json({
+        error: 'La imagen proporcionada no parece ser una Cédula de Identidad venezolana válida.',
+        detalles: motivos,
+      });
+    }
+
+    res.json({
+      valido: true,
+      message: 'La imagen corresponde a una Cédula de Identidad válida.',
+      cedulaExtraida,
+      nombresExtraidos,
+    });
+  } catch (err) {
+    if (err.ocrFallo) {
+      return res.status(err.status || 422).json({ error: err.message });
+    }
+    next(err);
+  }
+};
+
 // Sube la foto/documento de cédula de un cultor: recibe el archivo (Multer, en memoria),
-// lo envía a Cloudinary y guarda la URL resultante en documentos_cultor.
+// lo valida mediante OCR, lo envía a Cloudinary y guarda la URL resultante en documentos_cultor.
 exports.uploadCedula = async (req, res, next) => {
   try {
     if (!req.file) {
@@ -59,6 +98,22 @@ exports.uploadCedula = async (req, res, next) => {
     const { id_cultor } = req.body;
     if (!id_cultor) {
       return res.status(400).json({ error: 'id_cultor es requerido.' });
+    }
+
+    const resultadoOcr = await validarCedula(req.file.buffer);
+
+    if (!resultadoOcr.valido) {
+      const motivos = [];
+      if (!resultadoOcr.coincidencias.palabrasClave) {
+        motivos.push('No se encontraron las frases "REPÚBLICA BOLIVARIANA DE VENEZUELA" o "CÉDULA DE IDENTIDAD"');
+      }
+      if (!resultadoOcr.coincidencias.numeroIdentidad) {
+        motivos.push('No se encontró un número de cédula con formato V-12345678 o E-12345678');
+      }
+      return res.status(422).json({
+        error: 'La imagen proporcionada no parece ser una Cédula de Identidad venezolana válida.',
+        detalles: motivos,
+      });
     }
 
     const resultado = await subirBuffer(req.file.buffer, {
@@ -77,6 +132,9 @@ exports.uploadCedula = async (req, res, next) => {
 
     res.status(201).json(documento);
   } catch (err) {
+    if (err.ocrFallo) {
+      return res.status(err.status || 422).json({ error: err.message });
+    }
     next(err);
   }
 };
