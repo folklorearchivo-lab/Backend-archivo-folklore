@@ -1,10 +1,11 @@
 const crypto = require('crypto');
-const { Cultores, Usuarios, Roles, Parroquias, Municipios, sequelize } = require('../models');
+const { Cultores, Usuarios, Roles, Parroquias, Municipios, Notificaciones, FeDeVida, sequelize } = require('../models');
 const { hashPassword } = require('../services/passwordService');
 
 const ESTATUS_VALIDOS = ['pendiente', 'aprobado', 'rechazado'];
 
-// Include reutilizable: parroquia + municipio + usuario (activo)
+// Include reutilizable: parroquia + municipio + usuario (activo) + fe de vida más
+// reciente (la más reciente se resuelve en el cliente, ordenando por fecha_control).
 const INCLUDE_COMPLETO = [{
   model: Parroquias,
   as: 'parroquia',
@@ -14,6 +15,10 @@ const INCLUDE_COMPLETO = [{
   model: Usuarios,
   as: 'usuario',
   attributes: ['activo'],
+  required: false,
+}, {
+  model: FeDeVida,
+  as: 'fesDeVida',
   required: false,
 }];
 
@@ -163,9 +168,9 @@ exports.create = async (req, res, next) => {
 // Compartido por updateEstatus (aprobación manual de un pendiente) e ingresoManual
 // (alta directa ya aprobada) para no duplicar esta lógica en dos lugares.
 async function crearUsuarioParaCultor(cultor, t) {
-  let rolCultor = await Roles.findOne({ 
-    where: sequelize.where(sequelize.fn('lower', sequelize.col('nombre_rol')), 'cultor'), 
-    transaction: t 
+  let rolCultor = await Roles.findOne({
+    where: sequelize.where(sequelize.fn('lower', sequelize.col('nombre_rol')), 'cultor'),
+    transaction: t
   });
   if (!rolCultor) {
     rolCultor = await Roles.create(
@@ -185,6 +190,7 @@ async function crearUsuarioParaCultor(cultor, t) {
       segundo_apellido: cultor.segundo_apellido,
       correo: cultor.correo_contacto,
       password_hash,
+      password_temporal: true,
       id_rol: rolCultor.id_rol,
       telefono: cultor.telefono_contacto,
       activo: true,
@@ -194,6 +200,16 @@ async function crearUsuarioParaCultor(cultor, t) {
   );
 
   await cultor.update({ id_usuario: nuevoUsuario.id_usuario }, { transaction: t });
+
+  await Notificaciones.create(
+    {
+      id_usuario: nuevoUsuario.id_usuario,
+      titulo: 'Cambia tu contraseña temporal',
+      mensaje: 'Tu cuenta fue creada con una contraseña generada por el sistema. Por seguridad, cámbiala cuanto antes desde tu perfil.',
+      tipo: 'alerta',
+    },
+    { transaction: t }
+  );
 
   return { passwordTemporal };
 }

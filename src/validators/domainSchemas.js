@@ -1,4 +1,4 @@
-const { z, isoDate, positiveInt } = require('./commonSchemas');
+const { z, isoDate, positiveInt, passwordSegura } = require('./commonSchemas');
 
 const rolesCreateSchema = z.object({
   nombre_rol: z.string().min(2, 'El nombre del rol debe tener al menos 2 caracteres').max(50),
@@ -13,7 +13,7 @@ const authRegisterSchema = z.object({
   primer_apellido: z.string().min(2, 'El primer apellido debe tener al menos 2 caracteres').max(50),
   segundo_apellido: z.string().max(50).optional().nullable(),
   correo: z.string().email('Debe proporcionar un correo electrónico válido'),
-  password: z.string().min(8, 'La contraseña debe tener al menos 8 caracteres').max(128),
+  password: passwordSegura,
   id_rol: positiveInt.optional().nullable(),
   telefono: z.string().max(20).optional().nullable(),
 }).strict();
@@ -21,6 +21,10 @@ const authRegisterSchema = z.object({
 const authLoginSchema = z.object({
   correo: z.string().email('Debe proporcionar un correo electrónico válido'),
   password: z.string().min(1, 'La contraseña es obligatoria'),
+  // Indica desde qué app se inicia sesión ('publico' = sitio del cultor, 'admin' =
+  // panel administrativo), para elegir la cuenta correcta cuando el mismo correo
+  // tiene una cuenta de cada rol. Opcional por compatibilidad con clientes viejos.
+  portal: z.enum(['publico', 'admin']).optional(),
 }).strict();
 
 const usuariosCreateSchema = z.object({
@@ -29,7 +33,7 @@ const usuariosCreateSchema = z.object({
   primer_apellido: z.string().min(2).max(50),
   segundo_apellido: z.string().max(50).optional().nullable(),
   correo: z.string().email(),
-  password: z.string().min(8).optional(),
+  password: passwordSegura.optional(),
   id_rol: positiveInt.optional().nullable(),
   telefono: z.string().max(20).optional().nullable(),
   activo: z.boolean().optional(),
@@ -93,6 +97,28 @@ const cultoresUpdateSchema = cultoresBaseSchema.partial().strict().superRefine((
   }
 });
 
+// Acepta boolean real (JSON) o "true"/"false" en texto (multipart/form-data, ya que
+// el formulario de efemérides ahora sube la imagen como archivo).
+const booleanoDeFormulario = z.preprocess((val) => {
+  if (typeof val === 'string') return val === 'true';
+  return val;
+}, z.boolean());
+
+// Efemérides culturales: día/mes recurrente (se repite cada año), año histórico de
+// referencia opcional. "activa" controla si aparece en la web pública.
+const efemeridesCreateSchema = z.object({
+  titulo: z.string().min(2).max(150),
+  descripcion: z.string().optional().nullable(),
+  dia: z.coerce.number().int().min(1).max(31),
+  mes: z.coerce.number().int().min(1).max(12),
+  anio_referencia: z.coerce.number().int().min(1, 'Año inválido').max(2100).optional().nullable(),
+  categoria: z.string().max(50).optional().nullable(),
+  imagen: z.string().max(2048).optional().nullable(),
+  activa: booleanoDeFormulario.optional(),
+}).strict();
+
+const efemeridesUpdateSchema = efemeridesCreateSchema.partial().strict();
+
 const estatusSchema = z.object({
   estatus: z.enum(['pendiente', 'aprobado', 'rechazado']),
 }).strict();
@@ -146,12 +172,12 @@ const forgotPasswordSchema = z.object({
 
 const resetPasswordSchema = z.object({
   token: z.string().min(1, 'El token es requerido'),
-  newPassword: z.string().min(8, 'La nueva contraseña debe tener al menos 8 caracteres').max(128),
+  newPassword: passwordSegura,
 }).strict();
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'La contraseña actual es requerida'),
-  newPassword: z.string().min(8, 'La nueva contraseña debe tener al menos 8 caracteres').max(128),
+  newPassword: passwordSegura,
 }).strict();
 
 const updateProfileSchema = z.object({
@@ -199,6 +225,8 @@ module.exports = {
   cultoresUpdateSchema,
   cultoresMiPerfilUpdateSchema,
   appendCurriculumSchema,
+  efemeridesCreateSchema,
+  efemeridesUpdateSchema,
   obrasCreateSchema,
   obrasUpdateSchema,
   estatusSchema,

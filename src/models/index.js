@@ -7,6 +7,7 @@ const Cultores = require('./cultoresModel')(sequelize, Sequelize.DataTypes);
 const CultorManifestaciones = require('./cultorManifestacionesModel')(sequelize, Sequelize.DataTypes);
 const CultorOficios = require('./cultorOficiosModel')(sequelize, Sequelize.DataTypes);
 const DocumentosCultor = require('./documentosCultorModel')(sequelize, Sequelize.DataTypes);
+const Efemerides = require('./efemeridesModel')(sequelize, Sequelize.DataTypes);
 const Exposiciones = require('./exposicionesModel')(sequelize, Sequelize.DataTypes);
 const ExposicionManifestaciones = require('./exposicionManifestacionesModel')(sequelize, Sequelize.DataTypes);
 const ExposicionObras = require('./exposicionObrasModel')(sequelize, Sequelize.DataTypes);
@@ -152,6 +153,7 @@ module.exports = {
   CultorManifestaciones,
   CultorOficios,
   DocumentosCultor,
+  Efemerides,
   Exposiciones,
   ExposicionManifestaciones,
   ExposicionObras,

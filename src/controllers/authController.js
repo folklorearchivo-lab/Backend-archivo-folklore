@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 const { Usuarios, Roles } = require('../models');
-const { hashPassword, verifyPassword } = require('../services/passwordService');
+const { hashPassword, verifyPassword, passwordFueUsadaAntes, agregarAlHistorial } = require('../services/passwordService');
 const { signAccessToken } = require('../services/jwtService');
 
 const register = async (req, res, next) => {
@@ -11,11 +11,6 @@ const register = async (req, res, next) => {
       return res.status(400).json({ error: 'Faltan campos obligatorios' });
     }
 
-    const existingUser = await Usuarios.findOne({ where: { correo } });
-    if (existingUser) {
-      return res.status(400).json({ error: 'El correo ya está registrado' });
-    }
-
     // Determinar id_rol
     let activeIdRol = id_rol;
     if (!activeIdRol) {
@@ -23,6 +18,12 @@ const register = async (req, res, next) => {
       if (roleObj) {
         activeIdRol = roleObj.id_rol;
       }
+    }
+
+    // Único por (correo, id_rol): la misma persona puede tener cuentas con distinto rol.
+    const existingUser = await Usuarios.findOne({ where: { correo, id_rol: activeIdRol || null } });
+    if (existingUser) {
+      return res.status(400).json({ error: 'El correo ya está registrado' });
     }
 
     const password_hash = await hashPassword(password);
@@ -62,16 +63,30 @@ const register = async (req, res, next) => {
 
 const login = async (req, res, next) => {
   try {
-    const { correo, password } = req.body;
+    const { correo, password, portal } = req.body;
 
     if (!correo || !password) {
       return res.status(400).json({ error: 'Faltan campos obligatorios' });
     }
 
-    const user = await Usuarios.findOne({
+    // El mismo correo puede pertenecer a más de una cuenta (una de administrador y
+    // otra de cultor, por ejemplo), ya que la restricción de unicidad ahora es
+    // (correo, id_rol). "portal" indica desde qué app se está iniciando sesión, para
+    // elegir la cuenta correcta: el sitio público ('publico') solo autentica cultores,
+    // el panel administrativo ('admin') autentica cualquier rol que no sea cultor.
+    const candidatos = await Usuarios.findAll({
       where: { correo },
       include: [{ model: Roles, as: 'rolRel' }]
     });
+
+    let user = null;
+    if (portal === 'publico') {
+      user = candidatos.find((u) => u.rolRel?.nombre_rol?.toLowerCase() === 'cultor') || null;
+    } else if (portal === 'admin') {
+      user = candidatos.find((u) => u.rolRel?.nombre_rol?.toLowerCase() !== 'cultor') || null;
+    } else {
+      user = candidatos[0] || null;
+    }
 
     if (!user) {
       return res.status(401).json({ error: 'Credenciales inválidas' });
@@ -146,7 +161,7 @@ const forgotPassword = async (req, res, next) => {
     // hay que agregar al menos límite de intentos por IP/correo.
     const passwordTemporal = crypto.randomBytes(9).toString('base64url');
     const password_hash = await hashPassword(passwordTemporal);
-    await user.update({ password_hash });
+    await user.update({ password_hash, password_temporal: true });
 
     res.status(200).json({
       message: 'Contraseña temporal generada exitosamente.',
@@ -209,9 +224,16 @@ const resetPassword = async (req, res, next) => {
       return res.status(400).json({ error: 'El token de recuperación expiró. Solicita uno nuevo.' });
     }
 
+    const yaFueUsada = await passwordFueUsadaAntes(newPassword, user.password_hash, user.historial_passwords);
+    if (yaFueUsada) {
+      return res.status(400).json({ error: 'No puedes usar una contraseña que ya utilizaste anteriormente.' });
+    }
+
     const new_password_hash = await hashPassword(newPassword);
     await user.update({
       password_hash: new_password_hash,
+      password_temporal: false,
+      historial_passwords: agregarAlHistorial(user.historial_passwords, user.password_hash),
       reset_password_token: null,
       reset_password_expires: null,
     });
@@ -257,11 +279,24 @@ const updateProfile = async (req, res, next) => {
     }
 
     if (correo && correo !== user.correo) {
-      const existingUser = await Usuarios.findOne({ where: { correo } });
+      // Límite de un cambio de correo por mes, contado desde el último cambio.
+      if (user.correo_actualizado_en) {
+        const proximoCambioPermitido = new Date(user.correo_actualizado_en.getTime() + 30 * 24 * 60 * 60 * 1000);
+        if (proximoCambioPermitido > new Date()) {
+          return res.status(400).json({
+            error: `Solo puedes cambiar tu correo una vez al mes. Podrás volver a hacerlo el ${proximoCambioPermitido.toLocaleDateString('es-VE')}.`,
+          });
+        }
+      }
+
+      // Único por (correo, id_rol): otro usuario con el mismo correo pero distinto
+      // rol (ej. un cultor) no bloquea el cambio.
+      const existingUser = await Usuarios.findOne({ where: { correo, id_rol: user.id_rol } });
       if (existingUser) {
         return res.status(400).json({ error: 'El correo electrónico ya está registrado por otro usuario' });
       }
       user.correo = correo;
+      user.correo_actualizado_en = new Date();
     }
 
     if (primer_nombre) user.primer_nombre = primer_nombre;
@@ -305,8 +340,17 @@ const changePassword = async (req, res, next) => {
       return res.status(400).json({ error: 'La contraseña actual es incorrecta' });
     }
 
+    const yaFueUsada = await passwordFueUsadaAntes(newPassword, user.password_hash, user.historial_passwords);
+    if (yaFueUsada) {
+      return res.status(400).json({ error: 'No puedes usar una contraseña que ya utilizaste anteriormente.' });
+    }
+
     const new_password_hash = await hashPassword(newPassword);
-    await user.update({ password_hash: new_password_hash });
+    await user.update({
+      password_hash: new_password_hash,
+      password_temporal: false,
+      historial_passwords: agregarAlHistorial(user.historial_passwords, user.password_hash),
+    });
 
     res.status(200).json({ message: 'Contraseña cambiada exitosamente' });
   } catch (error) {

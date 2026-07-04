@@ -47,6 +47,97 @@ exports.exportCultoresPdf = async (req, res, next) => {
   }
 };
 
+// Excel: listado de cultores registrados (misma data que exportCultoresPdf, en Excel)
+exports.exportCultoresExcel = async (req, res, next) => {
+  try {
+    const cultores = await Cultores.findAll({
+      include: [{ model: Parroquias, as: 'parroquia', attributes: ['nombre'], include: [{ model: Municipios, as: 'municipio', attributes: ['nombre'] }] }],
+      order: [['primer_apellido', 'ASC']],
+    });
+
+    await enviarExcel(res, 'reporte_cultores_registrados.xlsx', {
+      titulo: 'Reporte de Cultores Registrados',
+      columnas: [
+        { header: '#', width: 6 },
+        { header: 'Nombre', width: 30 },
+        { header: 'Cédula', width: 16 },
+        { header: 'Municipio', width: 20 },
+        { header: 'Parroquia', width: 20 },
+        { header: 'Estatus', width: 14 },
+        { header: 'Fecha de Registro', width: 18 },
+      ],
+      filas: cultores.map((c, i) => [
+        i + 1,
+        nombreCompletoCultor(c),
+        c.cedula || 'N/D',
+        c.parroquia?.municipio?.nombre || 'Sin municipio',
+        c.parroquia?.nombre || 'Sin parroquia',
+        c.estatus || 'N/D',
+        c.fecha_registro ? new Date(c.fecha_registro).toLocaleDateString('es-VE') : 'N/D',
+      ]),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Excel: inventario de obras agrupado y ordenado por municipio, con subtotales.
+exports.exportObrasPorMunicipioExcel = async (req, res, next) => {
+  try {
+    const obras = await Obras.findAll({
+      where: { estatus: { [Op.ne]: 'eliminado' } },
+      include: [
+        { model: Cultores, as: 'cultor', attributes: ['primer_nombre', 'primer_apellido'] },
+        { model: CategoriasObra, as: 'categoria', attributes: ['nombre'] },
+        {
+          model: Parroquias, as: 'parroquia', attributes: ['nombre'],
+          include: [{ model: Municipios, as: 'municipio', attributes: ['nombre'] }],
+        },
+      ],
+      order: [['id_obra', 'ASC']],
+    });
+
+    // Agrupa por municipio (o "Sin municipio") y ordena alfabéticamente por municipio,
+    // manteniendo el orden original de las obras dentro de cada grupo.
+    const grupos = new Map();
+    for (const o of obras) {
+      const municipio = o.parroquia?.municipio?.nombre || 'Sin municipio';
+      if (!grupos.has(municipio)) grupos.set(municipio, []);
+      grupos.get(municipio).push(o);
+    }
+    const municipiosOrdenados = [...grupos.keys()].sort((a, b) => a.localeCompare(b, 'es'));
+
+    const filas = [];
+    for (const municipio of municipiosOrdenados) {
+      const obrasDelMunicipio = grupos.get(municipio);
+      filas.push([municipio, `— ${obrasDelMunicipio.length} obra(s) —`, '', '', '']);
+      for (const o of obrasDelMunicipio) {
+        filas.push([
+          '',
+          o.titulo || 'Sin título',
+          o.cultor ? `${o.cultor.primer_nombre || ''} ${o.cultor.primer_apellido || ''}`.trim() : 'Sin cultor',
+          o.categoria?.nombre || 'Sin categoría',
+          o.estatus || '',
+        ]);
+      }
+    }
+
+    await enviarExcel(res, 'patrimonio_por_municipio.xlsx', {
+      titulo: 'Inventario de Patrimonio por Municipio',
+      columnas: [
+        { header: 'Municipio', width: 22 },
+        { header: 'Título', width: 30 },
+        { header: 'Cultor', width: 24 },
+        { header: 'Categoría', width: 20 },
+        { header: 'Estatus', width: 14 },
+      ],
+      filas,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 // Ficha PDF individual de un cultor (usado por "Exportar Ficha" en el catálogo)
 exports.exportFichaCultorPdf = async (req, res, next) => {
   try {

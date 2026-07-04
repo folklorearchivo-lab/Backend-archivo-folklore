@@ -8,7 +8,9 @@ router.get('/resumen', requireAuth, requireRole('Administrador'), controller.get
 router.get('/reportes', requireAuth, requireRole('Administrador'), controller.getReportesResumen);
 
 router.get('/exportar/cultores-pdf', requireAuth, requireRole('Administrador'), exportController.exportCultoresPdf);
+router.get('/exportar/cultores-excel', requireAuth, requireRole('Administrador'), exportController.exportCultoresExcel);
 router.get('/exportar/obras-csv', requireAuth, requireRole('Administrador'), exportController.exportObrasCsv);
+router.get('/exportar/obras-por-municipio-excel', requireAuth, requireRole('Administrador'), exportController.exportObrasPorMunicipioExcel);
 router.get('/exportar/catalogo-consolidado-pdf', requireAuth, requireRole('Administrador'), exportController.exportCatalogoConsolidadoPdf);
 router.get('/exportar/ficha-cultor/:id_cultor', requireAuth, requireRole('Administrador'), exportController.exportFichaCultorPdf);
 

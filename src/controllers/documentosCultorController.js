@@ -88,7 +88,14 @@ exports.validarCedulaImagen = async (req, res, next) => {
 };
 
 // Sube la foto/documento de cédula de un cultor: recibe el archivo (Multer, en memoria),
-// lo valida mediante OCR, lo envía a Cloudinary y guarda la URL resultante en documentos_cultor.
+// lo envía a Cloudinary y guarda la URL resultante en documentos_cultor.
+// NO vuelve a correr el OCR aquí: el flujo de ambos formularios (RegisterForm.jsx y
+// ManualCultorForm.jsx) ya llama a POST /documentos_cultor/validar-cedula con este mismo
+// archivo justo ANTES de crear el cultor, y solo llega a este punto si esa validación
+// pasó. Repetir el OCR aquí era redundante y, al ser Tesseract no 100% determinista,
+// podía fallar por segunda vez en la misma imagen ya validada — dejando un cultor creado
+// sin documento y un error confuso ("se postuló igual"). Validar una sola vez, antes de
+// crear el registro, es lo correcto.
 exports.uploadCedula = async (req, res, next) => {
   try {
     if (!req.file) {
@@ -98,22 +105,6 @@ exports.uploadCedula = async (req, res, next) => {
     const { id_cultor } = req.body;
     if (!id_cultor) {
       return res.status(400).json({ error: 'id_cultor es requerido.' });
-    }
-
-    const resultadoOcr = await validarCedula(req.file.buffer);
-
-    if (!resultadoOcr.valido) {
-      const motivos = [];
-      if (!resultadoOcr.coincidencias.palabrasClave) {
-        motivos.push('No se encontraron las frases "REPÚBLICA BOLIVARIANA DE VENEZUELA" o "CÉDULA DE IDENTIDAD"');
-      }
-      if (!resultadoOcr.coincidencias.numeroIdentidad) {
-        motivos.push('No se encontró un número de cédula con formato V-12345678 o E-12345678');
-      }
-      return res.status(422).json({
-        error: 'La imagen proporcionada no parece ser una Cédula de Identidad venezolana válida.',
-        detalles: motivos,
-      });
     }
 
     const resultado = await subirBuffer(req.file.buffer, {

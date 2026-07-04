@@ -30,14 +30,21 @@ const KEYWORD_PATTERNS = [
   /C[CÉE]DULA\s+DE\s+IDENTIDAD/i,
 ];
 
-const ID_PATTERN = /[VE]\s*-?\s*\d{6,8}/i;
+// Las cédulas venezolanas reales se imprimen con puntos como separador de miles
+// (ej. "V 30.981.941"), no como un bloque de dígitos seguidos — por eso el patrón
+// acepta puntos/espacios opcionales entre grupos de dígitos, además del formato
+// sin separadores que se usa al escribir la cédula en el formulario ("V-30981941").
+const ID_PATTERN = /[VE]\s*-?\s*[\d.]{6,12}/i;
 
-// Extrae el número de cédula del texto OCR (ej. "V-12345678")
+// Extrae el número de cédula del texto OCR y lo normaliza a "V-30981941"
+// (sin puntos ni espacios), sin importar cómo estuviera separado en la imagen.
 function extraerCedula(text) {
   const match = text.match(ID_PATTERN);
   if (!match) return null;
-  const raw = match[0].replace(/\s+/g, '').toUpperCase();
-  return raw;
+  const limpio = match[0].replace(/[^A-Z0-9]/gi, '').toUpperCase();
+  const letra = limpio[0];
+  const numero = limpio.slice(1);
+  return `${letra}-${numero}`;
 }
 
 // Intenta extraer nombres y apellidos del texto OCR.
@@ -49,14 +56,33 @@ function extraerNombres(text) {
   let apellidos = null;
   let nombres = null;
 
-  // Patrón 1: "APELLIDOS: XXXX\nNOMBRES: XXXX"
-  const patronApellidos = /APELLIDOS?\s*:?\s*([A-ZÁÉÍÓÚÑ\s]+?)(?:\n|\r)/i;
-  const patronNombres = /NOMBRES?\s*:?\s*([A-ZÁÉÍÓÚÑ\s]+?)(?:\n|\r|$)/i;
-  const matchAp = text.match(patronApellidos);
-  const matchNom = text.match(patronNombres);
-  if (matchAp && matchNom) {
-    apellidos = matchAp[1].trim();
-    nombres = matchNom[1].trim();
+  // Patrón 1: se busca primero NOMBRES y luego APELLIDOS (mismo orden en que se
+  // llenan los campos del formulario). La etiqueta "NOMBRES" es tolerante a errores
+  // de OCR en la letra intermedia — el Tesseract suele leerla mal (ej. "NOMBRES" ->
+  // "nomeres", perdiendo la B) — por eso "NOM[A-Z]?RES?" acepta cualquier letra (o
+  // ninguna) en esa posición y sigue reconociendo la etiqueta como "nombres" real.
+  //
+  // Importante: la etiqueta se busca sin distinguir mayúsculas (puede venir mal
+  // leída en minúscula), pero el VALOR capturado despues de la etiqueta exige
+  // mayúsculas real (sin /i) — así se ignora el ruido en minúscula que deja el OCR
+  // alrededor (firmas, palabras sueltas como "Director", "my", etc.), que de otra
+  // forma se colaba como si fuera parte del nombre.
+  const patronEtiquetaNombres = /NOM[A-Z]?RES?\s*:?\s*/i;
+  const patronEtiquetaApellidos = /APELLIDOS?\s*:?\s*/i;
+  const patronValor = /(?:(?!APELLIDOS|NOM[A-Z]?RES?)[A-ZÁÉÍÓÚÑ]{2,}\s*){1,3}/;
+
+  function valorDespuesDe(patronEtiqueta) {
+    const matchEtiqueta = text.match(patronEtiqueta);
+    if (!matchEtiqueta) return null;
+    const restante = text.slice(matchEtiqueta.index + matchEtiqueta[0].length);
+    const matchValor = restante.match(patronValor);
+    return matchValor ? matchValor[0].trim() : null;
+  }
+
+  nombres = valorDespuesDe(patronEtiquetaNombres);
+  apellidos = valorDespuesDe(patronEtiquetaApellidos);
+
+  if (apellidos && nombres) {
     return { apellidos, nombres };
   }
 

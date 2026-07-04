@@ -1,4 +1,4 @@
-const { Usuarios, Roles } = require('../models');
+const { Usuarios, Roles, Notificaciones } = require('../models');
 const { hashPassword } = require('../services/passwordService');
 const crypto = require('crypto');
 
@@ -38,7 +38,7 @@ exports.get = exports.getById = async (req, res, next) => {
 exports.create = async (req, res, next) => {
   try {
     let generatedPassword = null;
-    
+
     if (!req.body.password) {
       generatedPassword = crypto.randomBytes(4).toString('hex') + 'X8$'; // e.g., "a1b2c3d4X8$"
       req.body.password = generatedPassword;
@@ -48,6 +48,10 @@ exports.create = async (req, res, next) => {
       req.body.password_hash = await hashPassword(req.body.password);
       delete req.body.password;
     }
+    // Toda contraseña generada por el sistema (nunca elegida por la persona) queda
+    // marcada como temporal, para forzar el recordatorio de cambio al iniciar sesión.
+    req.body.password_temporal = Boolean(generatedPassword);
+
     const item = await Usuarios.create(req.body);
     const itemWithRole = await Usuarios.findByPk(item.id_usuario, {
       include: [{ model: Roles, as: 'rolRel' }]
@@ -61,6 +65,13 @@ exports.create = async (req, res, next) => {
     // muestre en pantalla, como ya hace UsersManagement.jsx.
     if (generatedPassword) {
       plain.password_creada = generatedPassword;
+
+      await Notificaciones.create({
+        id_usuario: item.id_usuario,
+        titulo: 'Cambia tu contraseña temporal',
+        mensaje: 'Tu cuenta fue creada con una contraseña generada por el sistema. Por seguridad, cámbiala cuanto antes desde tu perfil.',
+        tipo: 'alerta',
+      });
     }
 
     res.status(201).json(plain);

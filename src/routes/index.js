@@ -7,6 +7,7 @@ const cultorManifestacionesRoutes = require('./cultorManifestacionesRoutes');
 const cultorOficiosRoutes = require('./cultorOficiosRoutes');
 const dashboardRoutes = require('./dashboardRoutes');
 const documentosCultorRoutes = require('./documentosCultorRoutes');
+const efemeridesRoutes = require('./efemeridesRoutes');
 const exposicionesRoutes = require('./exposicionesRoutes');
 const exposicionManifestacionesRoutes = require('./exposicionManifestacionesRoutes');
 const exposicionObrasRoutes = require('./exposicionObrasRoutes');
@@ -39,6 +40,7 @@ const routeModules = [
   cultorOficiosRoutes,
   dashboardRoutes,
   documentosCultorRoutes,
+  efemeridesRoutes,
   exposicionesRoutes,
   exposicionManifestacionesRoutes,
   exposicionObrasRoutes,
