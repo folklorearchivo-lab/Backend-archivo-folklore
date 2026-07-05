@@ -134,6 +134,22 @@ exports.getResumen = async (req, res, next) => {
   }
 };
 
+// Conteo de tareas pendientes para el widget "Acciones Requeridas"
+exports.getPendientes = async (req, res, next) => {
+  try {
+    const [cultoresPendientes, obrasPendientes] = await Promise.all([
+      Cultores.count({ where: { estatus: 'pendiente' } }),
+      Obras.count({ where: { estatus: 'pendiente' } }),
+    ]);
+    res.json({
+      cultoresPendientes,
+      obrasPendientes,
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
 const MESES_CORTOS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
 exports.getReportesResumen = async (req, res, next) => {

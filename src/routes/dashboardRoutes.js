@@ -5,6 +5,7 @@ const exportController = require('../controllers/exportController');
 const { requireAuth, requireRole } = require('../middlewares/authMiddleware');
 
 router.get('/resumen', requireAuth, requireRole('Administrador'), controller.getResumen);
+router.get('/pendientes', requireAuth, requireRole('Administrador'), controller.getPendientes);
 router.get('/reportes', requireAuth, requireRole('Administrador'), controller.getReportesResumen);
 
 router.get('/exportar/cultores-pdf', requireAuth, requireRole('Administrador'), exportController.exportCultoresPdf);

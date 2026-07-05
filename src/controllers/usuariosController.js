@@ -116,3 +116,18 @@ exports.remove = exports.delete = async (req, res, next) => {
     next(err);
   }
 };
+
+// Activar o desactivar un usuario (toggle activo)
+exports.toggleActivo = async (req, res, next) => {
+  try {
+    const item = await Usuarios.findByPk(req.params.id_usuario || req.params.id);
+    if (!item) {
+      return res.status(404).json({ error: 'Registro no encontrado en usuarios' });
+    }
+    const nuevoValor = !item.activo;
+    await item.update({ activo: nuevoValor });
+    res.json({ activo: nuevoValor });
+  } catch (err) {
+    next(err);
+  }
+};
