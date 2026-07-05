@@ -34,7 +34,7 @@ const factory = (sequelize, DataTypes) => {
       allowNull: true,
     },
     fecha_nacimiento: {
-      type: DataTypes.DATE,
+      type: DataTypes.DATEONLY,
       allowNull: true,
     },
     genero: {
@@ -101,6 +101,20 @@ const factory = (sequelize, DataTypes) => {
     tableName: 'cultores',
     timestamps: false,
   });
+
+  Cultores.prototype.toJSON = function () {
+    const values = this.get({ plain: true });
+    if (values.fecha_nacimiento) {
+      const d = new Date(values.fecha_nacimiento);
+      if (!isNaN(d.getTime())) {
+        const y = d.getUTCFullYear();
+        const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(d.getUTCDate()).padStart(2, '0');
+        values.fecha_nacimiento = `${y}-${m}-${day}`;
+      }
+    }
+    return values;
+  };
 
   return Cultores;
 };

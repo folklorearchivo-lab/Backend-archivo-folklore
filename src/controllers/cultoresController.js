@@ -33,6 +33,17 @@ const CAMPOS_OCULTOS_PUBLICO = [
   'datos_censo_adicionales',
 ];
 
+function toDateOnly(value) {
+  if (!value) return null;
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return null;
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 const LABEL_ESTATUS_VIDA = {
   activo: 'Miembro Activo',
   honorario: 'Miembro Honorario',
@@ -141,6 +152,11 @@ exports.getPublico = async (req, res, next) => {
         foto_perfil: cultor.foto_perfil,
         rol: LABEL_ESTATUS_VIDA[estatusVida] || null,
         municipio: cultor.parroquia?.municipio?.nombre || null,
+        seudonimo: cultor.seudonimo || null,
+        fecha_nacimiento: toDateOnly(cultor.fecha_nacimiento),
+        genero: cultor.genero || null,
+        trayectoria_documentada: cultor.trayectoria_documentada || null,
+        esta_certificado: cultor.esta_certificado || false,
       };
     });
 
@@ -203,6 +219,7 @@ exports.create = async (req, res, next) => {
 
     const item = await Cultores.create({
       ...req.body,
+      fecha_nacimiento: req.body.fecha_nacimiento ? toDateOnly(req.body.fecha_nacimiento) : null,
       fecha_registro: new Date(),
     });
     res.status(201).json(item);
@@ -290,7 +307,7 @@ exports.ingresoManual = async (req, res, next) => {
 
     const cultorCreado = await sequelize.transaction(async (t) => {
       const cultor = await Cultores.create(
-        { ...req.body, fecha_registro: new Date(), estatus: 'aprobado' },
+        { ...req.body, fecha_nacimiento: req.body.fecha_nacimiento ? toDateOnly(req.body.fecha_nacimiento) : null, fecha_registro: new Date(), estatus: 'aprobado' },
         { transaction: t }
       );
 
@@ -300,6 +317,9 @@ exports.ingresoManual = async (req, res, next) => {
     });
 
     const respuesta = cultorCreado.get({ plain: true });
+    if (respuesta.fecha_nacimiento) {
+      respuesta.fecha_nacimiento = toDateOnly(respuesta.fecha_nacimiento);
+    }
     respuesta.credencialesNuevas = {
       correo: cultorCreado.correo_contacto,
       nombre: `${cultorCreado.primer_nombre} ${cultorCreado.primer_apellido}`,
@@ -318,6 +338,9 @@ exports.update = async (req, res, next) => {
     const item = await Cultores.findByPk(req.params.id_cultor || req.params.id);
     if (!item) {
       return res.status(404).json({ error: 'Registro no encontrado en cultores' });
+    }
+    if (req.body.fecha_nacimiento) {
+      req.body.fecha_nacimiento = toDateOnly(req.body.fecha_nacimiento);
     }
     await item.update(req.body);
     try { getIO().emit('cultor:updated', { id_cultor: item.id_cultor }); } catch (_) {}
@@ -366,6 +389,9 @@ exports.updateEstatus = async (req, res, next) => {
     // en texto plano SOLO en esta respuesta puntual, para que el dashboard del admin
     // dispare la plantilla de credenciales hacia el correo del cultor.
     const respuesta = cultorActualizado.get({ plain: true });
+    if (respuesta.fecha_nacimiento) {
+      respuesta.fecha_nacimiento = toDateOnly(respuesta.fecha_nacimiento);
+    }
     if (credencialesNuevas) {
       respuesta.credencialesNuevas = {
         correo: credencialesNuevas.correo,
@@ -395,9 +421,12 @@ exports.updateMiPerfil = async (req, res, next) => {
     }
 
     const cambios = {};
-    // Solo se tocan los campos que vienen en el body
     for (const campo of Object.keys(req.body)) {
-      cambios[campo] = req.body[campo];
+      let valor = req.body[campo];
+      if (campo === 'fecha_nacimiento' && valor) {
+        valor = toDateOnly(valor);
+      }
+      cambios[campo] = valor;
     }
 
     if (Object.keys(cambios).length === 0) {
