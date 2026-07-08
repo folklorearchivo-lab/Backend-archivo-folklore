@@ -10,6 +10,7 @@ router.get('/reportes', requireAuth, requireRole('Administrador'), controller.ge
 
 router.get('/exportar/cultores-pdf', requireAuth, requireRole('Administrador'), exportController.exportCultoresPdf);
 router.get('/exportar/cultores-excel', requireAuth, requireRole('Administrador'), exportController.exportCultoresExcel);
+router.get('/exportar/cultores-por-region-excel', requireAuth, requireRole('Administrador'), exportController.exportCultoresPorRegionExcel);
 router.get('/exportar/obras-csv', requireAuth, requireRole('Administrador'), exportController.exportObrasCsv);
 router.get('/exportar/obras-por-municipio-excel', requireAuth, requireRole('Administrador'), exportController.exportObrasPorMunicipioExcel);
 router.get('/exportar/catalogo-consolidado-pdf', requireAuth, requireRole('Administrador'), exportController.exportCatalogoConsolidadoPdf);

@@ -72,6 +72,7 @@ const factory = (sequelize, DataTypes) => {
     estatus: {
       type: DataTypes.STRING,
       allowNull: true,
+      defaultValue: 'pendiente',
     },
     esta_certificado: {
       type: DataTypes.BOOLEAN,
@@ -88,6 +89,13 @@ const factory = (sequelize, DataTypes) => {
     datos_censo_adicionales: {
       type: DataTypes.JSON,
       allowNull: true,
+    },
+    // Controla si telefono_contacto/correo_contacto se muestran en el directorio
+    // público (getPublico). Decisión del propio cultor, apagada por defecto.
+    mostrar_contacto_publico: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
     },
     fecha_registro: {
       type: DataTypes.DATE,

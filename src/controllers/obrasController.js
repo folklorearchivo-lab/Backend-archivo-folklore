@@ -1,6 +1,7 @@
-const { Obras, Multimedia, Cultores, CategoriasObra, Notificaciones } = require('../models');
+const { Obras, Multimedia, Cultores, CategoriasObra, Notificaciones, sequelize } = require('../models');
 const Sequelize = require('sequelize');
 const { getIO } = require('../services/socketManager');
+const { subirBuffer } = require('../services/cloudinaryService');
 
 const ESTATUS_VALIDOS = ['pendiente', 'aprobado', 'rechazado', 'eliminado'];
 const { Op } = require('sequelize');
@@ -100,6 +101,13 @@ exports.create = async (req, res, next) => {
     const isAdministrador = req.auth?.rol?.toLowerCase() === 'administrador';
     const estatusInicial = isAdministrador ? 'aprobado' : 'pendiente';
 
+    // La foto es obligatoria cuando el propio cultor postula su obra — sin imagen no
+    // tiene sentido enviarla. El admin puede seguir creando obras sin foto desde el
+    // panel (Inventario Patrimonial), como ya podía.
+    if (!isAdministrador && !req.file) {
+      return res.status(400).json({ error: 'Debes adjuntar una fotografía de la obra para completar el registro.' });
+    }
+
     // Solo asignamos código si la obra entra aprobada directamente
     let codigoAsignado = null;
     if (estatusInicial === 'aprobado') {
@@ -146,29 +154,80 @@ exports.create = async (req, res, next) => {
       id_parroquia,
     } = req.body;
 
-    const item = await Obras.create({
-      titulo,
-      tipo_patrimonio,
-      descripcion_historica,
-      materiales_utilizados,
-      tecnica_utilizada,
-      significado_cultural,
-      dimensiones,
-      peso,
-      tiempo_ejecucion,
-      estado_conservacion,
-      ubicacion_actual,
-      valor_estimado,
-      id_categoria,
-      id_parroquia,
-      id_cultor,
-      codigo_qr_link: codigoAsignado,
-      id_usuario_registro: req.auth?.id_usuario ?? null,
-      fecha_postulacion: new Date(),
-      estatus: estatusInicial,
+    // La obra y su foto se crean en una sola transacción: si la imagen falla al
+    // subir, se revierte la creación de la obra completa — nunca queda una obra
+    // 'pendiente' huérfana sin fotografía (mismo patrón que la cédula del cultor).
+    const item = await sequelize.transaction(async (t) => {
+      const obra = await Obras.create({
+        titulo,
+        tipo_patrimonio,
+        descripcion_historica,
+        materiales_utilizados,
+        tecnica_utilizada,
+        significado_cultural,
+        dimensiones,
+        peso,
+        tiempo_ejecucion,
+        estado_conservacion,
+        ubicacion_actual,
+        valor_estimado,
+        id_categoria,
+        id_parroquia,
+        id_cultor,
+        codigo_qr_link: codigoAsignado,
+        id_usuario_registro: req.auth?.id_usuario ?? null,
+        fecha_postulacion: new Date(),
+        estatus: estatusInicial,
+      }, { transaction: t });
+
+      if (req.file) {
+        let resultado;
+        try {
+          resultado = await subirBuffer(req.file.buffer, {
+            folder: 'archivo-tachira/multimedia',
+            publicId: `obra_${obra.id_obra}_${Date.now()}`,
+          });
+        } catch (e) {
+          const err = new Error('No se pudo procesar la fotografía de la obra. Intenta nuevamente.');
+          err.status = 422;
+          throw err;
+        }
+        await Multimedia.create({
+          tipo_archivo: 'imagen',
+          url_archivo: resultado.secure_url,
+          nombre_archivo: req.file.originalname,
+          id_obra: obra.id_obra,
+          es_portada: 'si',
+          fecha_carga: new Date(),
+          id_usuario_carga: req.auth?.id_usuario || null,
+        }, { transaction: t });
+      }
+
+      return obra;
     });
+
+    // Notificar al cultor que su obra fue recibida (solo cuando la postula él mismo,
+    // no cuando el admin la registra directamente ya aprobada). Mismo patrón que
+    // updateEstatus, sin hacer fallar la respuesta principal si la notificación falla.
+    if (!isAdministrador) {
+      try {
+        await Notificaciones.create({
+          id_usuario: req.auth.id_usuario,
+          titulo: '📥 Obra recibida',
+          mensaje: `Tu obra "${item.titulo}" fue recibida y está en revisión por el equipo del Archivo de Folklore del Táchira.`,
+          tipo: 'info',
+          leida: false,
+        });
+      } catch (notifErr) {
+        console.error('[obras.create] No se pudo crear la notificación:', notifErr.message);
+      }
+    }
+
     res.status(201).json(item);
   } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message });
+    }
     next(err);
   }
 };
@@ -312,6 +371,46 @@ exports.deleteWithPassword = async (req, res, next) => {
     await item.destroy();
 
     res.status(200).json({ message: 'Obra eliminada exitosamente' });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Reemplaza la fotografía de una obra ya existente (autoservicio del cultor sobre su
+// propia obra, o admin). requireOwnObraOrAdmin ya validó que la obra pertenece a quien
+// hace la petición (o que es admin) y dejó la obra en req.obra. Sustituye cualquier
+// imagen anterior por la nueva, para que la galería siempre muestre la foto más reciente.
+exports.reemplazarFoto = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'Debes adjuntar una fotografía.' });
+    }
+
+    const obra = req.obra || await Obras.findByPk(req.params.id_obra);
+    if (!obra) {
+      return res.status(404).json({ error: 'Registro no encontrado en obras' });
+    }
+
+    const resultado = await subirBuffer(req.file.buffer, {
+      folder: 'archivo-tachira/multimedia',
+      publicId: `obra_${obra.id_obra}_${Date.now()}`,
+    });
+
+    await Multimedia.destroy({ where: { id_obra: obra.id_obra } });
+
+    const nuevaImagen = await Multimedia.create({
+      tipo_archivo: 'imagen',
+      url_archivo: resultado.secure_url,
+      nombre_archivo: req.file.originalname,
+      id_obra: obra.id_obra,
+      es_portada: 'si',
+      fecha_carga: new Date(),
+      id_usuario_carga: req.auth?.id_usuario || null,
+    });
+
+    try { getIO().emit('obra:updated', {}); } catch (_) {}
+
+    res.status(201).json(nuevaImagen);
   } catch (err) {
     next(err);
   }

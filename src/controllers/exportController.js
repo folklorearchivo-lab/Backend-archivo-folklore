@@ -16,10 +16,13 @@ function nombreCompletoCultor(c) {
   return `${c.primer_nombre || ''} ${c.segundo_nombre || ''} ${c.primer_apellido || ''} ${c.segundo_apellido || ''}`.replace(/\s+/g, ' ').trim();
 }
 
-// Reporte PDF: listado de cultores registrados
+// Reporte PDF: listado de cultores registrados. Solo cultores aprobados — estos
+// reportes son para uso oficial/externo, y las postulaciones pendientes o rechazadas
+// no deben figurar como si ya fueran parte del registro oficial.
 exports.exportCultoresPdf = async (req, res, next) => {
   try {
     const cultores = await Cultores.findAll({
+      where: { estatus: 'aprobado' },
       include: [{ model: Parroquias, as: 'parroquia', attributes: ['nombre'], include: [{ model: Municipios, as: 'municipio', attributes: ['nombre'] }] }],
       order: [['primer_apellido', 'ASC']],
     });
@@ -47,10 +50,12 @@ exports.exportCultoresPdf = async (req, res, next) => {
   }
 };
 
-// Excel: listado de cultores registrados (misma data que exportCultoresPdf, en Excel)
+// Excel: listado de cultores registrados (misma data que exportCultoresPdf, en Excel).
+// Solo aprobados, mismo criterio que exportCultoresPdf.
 exports.exportCultoresExcel = async (req, res, next) => {
   try {
     const cultores = await Cultores.findAll({
+      where: { estatus: 'aprobado' },
       include: [{ model: Parroquias, as: 'parroquia', attributes: ['nombre'], include: [{ model: Municipios, as: 'municipio', attributes: ['nombre'] }] }],
       order: [['primer_apellido', 'ASC']],
     });
@@ -75,6 +80,61 @@ exports.exportCultoresExcel = async (req, res, next) => {
         c.estatus || 'N/D',
         c.fecha_registro ? new Date(c.fecha_registro).toLocaleDateString('es-VE') : 'N/D',
       ]),
+    });
+  } catch (err) {
+    next(err);
+  }
+};
+
+// Excel: cultores aprobados agrupados y ordenados por municipio, con subtotales por
+// región (mismo patrón que exportObrasPorMunicipioExcel, para el reporte oficial de
+// "Registro de Cultores por Región"). Solo aprobados, mismo criterio que las demás
+// exportaciones de cultores.
+exports.exportCultoresPorRegionExcel = async (req, res, next) => {
+  try {
+    const cultores = await Cultores.findAll({
+      where: { estatus: 'aprobado' },
+      include: [{ model: Parroquias, as: 'parroquia', attributes: ['nombre'], include: [{ model: Municipios, as: 'municipio', attributes: ['nombre'] }] }],
+      order: [['primer_apellido', 'ASC']],
+    });
+
+    // Agrupa por municipio (o "Sin municipio") y ordena alfabéticamente por municipio,
+    // manteniendo el orden original de los cultores dentro de cada grupo.
+    const grupos = new Map();
+    for (const c of cultores) {
+      const municipio = c.parroquia?.municipio?.nombre || 'Sin municipio';
+      if (!grupos.has(municipio)) grupos.set(municipio, []);
+      grupos.get(municipio).push(c);
+    }
+    const municipiosOrdenados = [...grupos.keys()].sort((a, b) => a.localeCompare(b, 'es'));
+
+    const filas = [];
+    for (const municipio of municipiosOrdenados) {
+      const cultoresDelMunicipio = grupos.get(municipio);
+      filas.push([municipio, `— ${cultoresDelMunicipio.length} cultor(es) —`, '', '', '', '']);
+      for (const c of cultoresDelMunicipio) {
+        filas.push([
+          '',
+          nombreCompletoCultor(c),
+          c.cedula || 'N/D',
+          c.parroquia?.nombre || 'Sin parroquia',
+          c.esta_certificado ? 'Sí' : 'No',
+          c.fecha_registro ? new Date(c.fecha_registro).toLocaleDateString('es-VE') : 'N/D',
+        ]);
+      }
+    }
+
+    await enviarExcel(res, 'cultores_por_region.xlsx', {
+      titulo: 'Registro de Cultores Aprobados por Región',
+      columnas: [
+        { header: 'Municipio', width: 22 },
+        { header: 'Nombre', width: 32 },
+        { header: 'Cédula', width: 16 },
+        { header: 'Parroquia', width: 20 },
+        { header: 'Certificado', width: 14 },
+        { header: 'Fecha de Registro', width: 18 },
+      ],
+      filas,
     });
   } catch (err) {
     next(err);

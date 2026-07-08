@@ -29,11 +29,12 @@ const INCLUDE_COMPLETO = [{
   required: false,
 }];
 
-// Campos sensibles que la web pública nunca debe recibir
+// Campos sensibles que la web pública nunca debe recibir. telefono_contacto y
+// correo_contacto NO están aquí a propósito: se consultan igual, pero solo se
+// devuelven en getPublico si el propio cultor activó mostrar_contacto_publico —
+// ver el .map() de getPublico más abajo.
 const CAMPOS_OCULTOS_PUBLICO = [
   'cedula',
-  'telefono_contacto',
-  'correo_contacto',
   'direccion_residencia',
   'datos_censo_adicionales',
 ];
@@ -162,6 +163,9 @@ exports.getPublico = async (req, res, next) => {
         genero: cultor.genero || null,
         trayectoria_documentada: cultor.trayectoria_documentada || null,
         esta_certificado: cultor.esta_certificado || false,
+        // Solo se exponen si el propio cultor activó "mostrar mi contacto públicamente".
+        telefono_contacto: cultor.mostrar_contacto_publico ? cultor.telefono_contacto : null,
+        correo_contacto: cultor.mostrar_contacto_publico ? cultor.correo_contacto : null,
       };
     });
 
@@ -186,13 +190,80 @@ exports.get = exports.getById = async (req, res, next) => {
   }
 };
 
+// Crea los documentos de un cultor recién creado DENTRO de la misma transacción que lo
+// creó: la cédula es obligatoria (si falta o su subida falla, se relanza el error para
+// que la transacción completa haga rollback y el cultor NUNCA quede creado sin ella).
+// Los documentos de soporte son opcionales de adjuntar, pero si el cultor adjuntó
+// alguno, también deben guardarse todos correctamente o se revierte todo — no hay
+// "mejor esfuerzo" a medias. Usada por create() (postulación pública) e
+// ingresoManual() (alta directa del admin) para no duplicar esta lógica.
+async function crearDocumentosDelCultor(idCultor, files, t) {
+  const archivoCedula = files?.archivo_cedula?.[0];
+  if (!archivoCedula) {
+    const err = new Error('Debes adjuntar la foto o documento de tu cédula para completar el registro.');
+    err.status = 400;
+    throw err;
+  }
+
+  let resultadoCedula;
+  try {
+    resultadoCedula = await subirBuffer(archivoCedula.buffer, {
+      folder: 'archivo-tachira/cedulas',
+      publicId: `cultor_${idCultor}_${Date.now()}`,
+    });
+  } catch (e) {
+    const err = new Error('No se pudo procesar el documento de cédula. Intenta nuevamente.');
+    err.status = 422;
+    throw err;
+  }
+  await DocumentosCultor.create({
+    id_cultor: idCultor,
+    tipo_documento: 'cedula',
+    url_archivo: resultadoCedula.secure_url,
+    nombre_archivo: archivoCedula.originalname,
+    fecha_carga: new Date(),
+  }, { transaction: t });
+
+  const archivosSoporte = files?.archivos_soporte || [];
+  for (let i = 0; i < archivosSoporte.length; i++) {
+    const file = archivosSoporte[i];
+    let resultado;
+    try {
+      resultado = await subirBuffer(file.buffer, {
+        folder: 'archivo-tachira/documentos-soporte',
+        publicId: `soporte_${idCultor}_${Date.now()}_${i}`,
+      });
+    } catch (e) {
+      const err = new Error('No se pudo procesar uno de los documentos de soporte. Intenta nuevamente.');
+      err.status = 422;
+      throw err;
+    }
+    await DocumentosCultor.create({
+      id_cultor: idCultor,
+      tipo_documento: 'soporte',
+      url_archivo: resultado.secure_url,
+      nombre_archivo: file.originalname,
+      fecha_carga: new Date(),
+    }, { transaction: t });
+  }
+}
+
 // Crear un registro (postulación). fecha_registro NUNCA viene del body: se fija aquí,
 // mismo patrón que fecha_postulacion en obrasController.create. SIEMPRE queda
 // 'pendiente' (el esquema de validación ni siquiera acepta 'estatus' del cliente) —
 // esta es la ruta pública, sin auth; el auto-aprobado vive en ingresoManual.
+// La cédula (y los soportes, si los adjuntó) se crean en la MISMA transacción que el
+// cultor: si algún documento falla, TODO se revierte — nunca queda un cultor 'pendiente'
+// sin su documento de identidad.
 exports.create = async (req, res, next) => {
   try {
     const { cedula, correo_contacto, fecha_nacimiento } = req.body;
+
+    if (!req.files?.archivo_cedula?.[0]) {
+      return res.status(400).json({
+        error: 'Debes adjuntar la foto o documento de tu cédula para completar el registro.',
+      });
+    }
 
     if (cedula) {
       const existeCedula = await Cultores.findOne({ where: { cedula } });
@@ -224,67 +295,24 @@ exports.create = async (req, res, next) => {
       }
     }
 
-    const item = await Cultores.create({
-      ...req.body,
-      fecha_nacimiento: req.body.fecha_nacimiento ? toDateOnly(req.body.fecha_nacimiento) : null,
-      fecha_registro: new Date(),
+    const item = await sequelize.transaction(async (t) => {
+      const cultor = await Cultores.create({
+        ...req.body,
+        fecha_nacimiento: req.body.fecha_nacimiento ? toDateOnly(req.body.fecha_nacimiento) : null,
+        fecha_registro: new Date(),
+        estatus: 'pendiente',
+        // Esta es la postulación pública: el propio cultor es quien envía el
+        // formulario, así que por definición está vivo. El ingreso manual del admin
+        // (ingresoManual, más abajo) no fija este campo — ahí queda a criterio del admin.
+        estatus_vida: 'activo',
+      }, { transaction: t });
+
+      await crearDocumentosDelCultor(cultor.id_cultor, req.files, t);
+
+      return cultor;
     });
 
-    // Si viene una cédula en base64, la subimos a Cloudinary y creamos el documento
-    let documentoCedula = null;
-    if (req.body.documento_cedula_base64 && req.body.documento_cedula_nombre) {
-      try {
-        const buffer = Buffer.from(req.body.documento_cedula_base64, 'base64');
-        const resultado = await subirBuffer(buffer, {
-          folder: 'archivo-tachira/cedulas',
-          publicId: `cultor_${item.id_cultor}_${Date.now()}`,
-        });
-        documentoCedula = await DocumentosCultor.create({
-          id_cultor: item.id_cultor,
-          tipo_documento: 'cedula',
-          url_archivo: resultado.secure_url,
-          nombre_archivo: req.body.documento_cedula_nombre,
-          fecha_carga: new Date(),
-          id_usuario_carga: null,
-        });
-      } catch (e) {
-        console.error('[cultores.create] Error subiendo cédula base64:', e.message);
-      }
-    }
-
-    // Soporte: array de objetos { base64, nombre }
-    const documentosSoporte = [];
-    if (Array.isArray(req.body.documentos_soporte)) {
-      for (const doc of req.body.documentos_soporte) {
-        if (doc.base64 && doc.nombre) {
-          try {
-            const buffer = Buffer.from(doc.base64, 'base64');
-            const resultado = await subirBuffer(buffer, {
-              folder: 'archivo-tachira/documentos-soporte',
-              publicId: `soporte_${item.id_cultor}_${Date.now()}_${documentosSoporte.length}`,
-            });
-            const creado = await DocumentosCultor.create({
-              id_cultor: item.id_cultor,
-              tipo_documento: 'soporte',
-              url_archivo: resultado.secure_url,
-              nombre_archivo: doc.nombre,
-              fecha_carga: new Date(),
-              id_usuario_carga: null,
-            });
-            documentosSoporte.push(creado);
-          } catch (e) {
-            console.error('[cultores.create] Error subiendo soporte:', e.message);
-          }
-        }
-      }
-    }
-
-    // Incluir documentos en la respuesta si se crearon
-    const responseData = item.toJSON();
-    if (documentoCedula) responseData.documentoCedula = documentoCedula;
-    if (documentosSoporte.length > 0) responseData.documentosSoporte = documentosSoporte;
-    
-    res.status(201).json(responseData);
+    res.status(201).json(item.toJSON());
   } catch (err) {
     if (err.name === 'SequelizeUniqueConstraintError') {
       const campo = err.fields ? Object.keys(err.fields)[0] : 'dato';
@@ -296,6 +324,9 @@ exports.create = async (req, res, next) => {
         error: mensajes[campo] || 'El dato ya se encuentra registrado.',
         campo,
       });
+    }
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message });
     }
     next(err);
   }
@@ -356,12 +387,19 @@ async function crearUsuarioParaCultor(cultor, t) {
 // Ingreso manual del admin: a diferencia de create() (siempre 'pendiente'), este crea
 // el Cultor YA aprobado y su Usuario+contraseña en la misma transacción. Ruta protegida
 // (requireAuth + requireRole admin) — nunca expuesta sin auth, porque permite
-// auto-aprobación inmediata.
+// auto-aprobación inmediata. La cédula (y soportes, si los hay) se crean en la misma
+// transacción — misma garantía "todo o nada" que en create().
 exports.ingresoManual = async (req, res, next) => {
   try {
     if (!req.body.correo_contacto) {
       return res.status(400).json({
         error: 'El ingreso manual requiere correo_contacto para poder crear el acceso del cultor.',
+      });
+    }
+
+    if (!req.files?.archivo_cedula?.[0]) {
+      return res.status(400).json({
+        error: 'Debes adjuntar la foto o documento de la cédula para completar el registro.',
       });
     }
 
@@ -372,6 +410,8 @@ exports.ingresoManual = async (req, res, next) => {
         { ...req.body, fecha_nacimiento: req.body.fecha_nacimiento ? toDateOnly(req.body.fecha_nacimiento) : null, fecha_registro: new Date(), estatus: 'aprobado' },
         { transaction: t }
       );
+
+      await crearDocumentosDelCultor(cultor.id_cultor, req.files, t);
 
       ({ passwordTemporal } = await crearUsuarioParaCultor(cultor, t));
 
@@ -390,6 +430,9 @@ exports.ingresoManual = async (req, res, next) => {
 
     res.status(201).json(respuesta);
   } catch (err) {
+    if (err.status) {
+      return res.status(err.status).json({ error: err.message });
+    }
     next(err);
   }
 };

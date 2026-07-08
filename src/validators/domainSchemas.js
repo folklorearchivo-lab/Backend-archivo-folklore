@@ -1,5 +1,12 @@
 const { z, isoDate, positiveInt, passwordSegura } = require('./commonSchemas');
 
+// Acepta boolean real (JSON) o "true"/"false" en texto (multipart/form-data, usado por
+// cultores al ir la cédula/soportes como archivos, y por efemérides al subir imagen).
+const booleanoDeFormulario = z.preprocess((val) => {
+  if (typeof val === 'string') return val === 'true';
+  return val;
+}, z.boolean());
+
 const rolesCreateSchema = z.object({
   nombre_rol: z.string().min(2, 'El nombre del rol debe tener al menos 2 caracteres').max(50),
   descripcion: z.string().max(255).optional().nullable(),
@@ -65,7 +72,7 @@ const cultoresBaseSchema = z.object({
   resumen_curricular: z.string().optional().nullable(),
   trayectoria_documentada: z.string().optional().nullable(),
   estatus_vida: z.string().max(20).optional().nullable(),
-  esta_certificado: z.boolean().optional(),
+  esta_certificado: booleanoDeFormulario.optional(),
   foto_perfil: z.string().max(255).optional().nullable(),
   foto_certificacion: z.string().max(255).optional().nullable(),
   datos_censo_adicionales: z.any().optional(),
@@ -96,13 +103,6 @@ const cultoresUpdateSchema = cultoresBaseSchema.partial().strict().superRefine((
     }
   }
 });
-
-// Acepta boolean real (JSON) o "true"/"false" en texto (multipart/form-data, ya que
-// el formulario de efemérides ahora sube la imagen como archivo).
-const booleanoDeFormulario = z.preprocess((val) => {
-  if (typeof val === 'string') return val === 'true';
-  return val;
-}, z.boolean());
 
 // Efemérides culturales: día/mes recurrente (se repite cada año), año histórico de
 // referencia opcional. "activa" controla si aparece en la web pública.
@@ -169,6 +169,10 @@ const manifestacionesUpdateSchema = manifestacionesCreateSchema.partial().strict
 
 const forgotPasswordSchema = z.object({
   correo: z.string().email('Debe proporcionar un correo electrónico válido'),
+  // Mismo uso que en authLoginSchema: el correo puede pertenecer a una cuenta de
+  // cultor y otra de administrador a la vez (unique por correo+id_rol), así que hay
+  // que saber desde qué portal se pide la recuperación para tocar la cuenta correcta.
+  portal: z.enum(['publico', 'admin']).optional(),
 }).strict();
 
 const resetPasswordSchema = z.object({
@@ -210,6 +214,7 @@ const cultoresMiPerfilUpdateSchema = z.object({
   resumen_curricular: z.string().optional().nullable(),
   trayectoria_documentada: z.string().optional().nullable(),
   esta_certificado: z.boolean().optional(),
+  mostrar_contacto_publico: z.boolean().optional(),
 }).strict();
 
 // Esquema para agregar texto al resumen curricular (appending).

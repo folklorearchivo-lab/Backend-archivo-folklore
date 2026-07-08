@@ -178,8 +178,25 @@ const forgotPassword = async (req, res, next) => {
 // la contraseña directamente porque entonces no había plantilla de correo disponible).
 const olvidePassword = async (req, res, next) => {
   try {
-    const { correo } = req.body;
-    const user = await Usuarios.findOne({ where: { correo } });
+    const { correo, portal } = req.body;
+
+    // Mismo criterio de selección que login(): el correo puede pertenecer a una
+    // cuenta de cultor y otra de administrador a la vez, así que hay que elegir la
+    // correcta según el portal — si no, se le podía cambiar la contraseña a la
+    // cuenta equivocada sin que nadie lo notara.
+    const candidatos = await Usuarios.findAll({
+      where: { correo },
+      include: [{ model: Roles, as: 'rolRel' }],
+    });
+
+    let user = null;
+    if (portal === 'publico') {
+      user = candidatos.find((u) => u.rolRel?.nombre_rol?.toLowerCase() === 'cultor') || null;
+    } else if (portal === 'admin') {
+      user = candidatos.find((u) => u.rolRel?.nombre_rol?.toLowerCase() !== 'cultor') || null;
+    } else {
+      user = candidatos[0] || null;
+    }
 
     const mensajeGenerico = 'Si el correo está registrado, recibirás un enlace de recuperación.';
     if (!user) {

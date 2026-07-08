@@ -107,9 +107,43 @@ async function requireOwnCultorOrAdmin(req, res, next) {
   }
 }
 
+// Middleware: permite acceso si el usuario es administrador, o si la obra
+// (identificada por req.params.id_obra) pertenece al cultor vinculado a su cuenta.
+// Usado en rutas donde el cultor puede modificar/eliminar únicamente sus propias
+// obras — antes estas rutas solo exigían estar logueado y activo, sin revisar
+// dueño, así que cualquier cultor podía modificar la obra de otro.
+async function requireOwnObraOrAdmin(req, res, next) {
+  if (!req.auth) {
+    return res.status(401).json({ message: 'No autenticado' });
+  }
+
+  if (req.auth.rol && req.auth.rol.toLowerCase() === 'administrador') {
+    return next();
+  }
+
+  try {
+    const { Obras, Cultores } = require('../models');
+    const obra = await Obras.findByPk(req.params.id_obra);
+    if (!obra) {
+      return res.status(404).json({ error: 'Registro no encontrado en obras' });
+    }
+
+    const cultor = await Cultores.findOne({ where: { id_usuario: req.auth.id_usuario } });
+    if (!cultor || obra.id_cultor !== cultor.id_cultor) {
+      return res.status(403).json({ message: 'No tienes permiso para modificar esta obra' });
+    }
+
+    req.obra = obra;
+    return next();
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+}
+
 module.exports = {
   requireAuth,
   requireRole,
   requireOwnCultorOrAdmin,
+  requireOwnObraOrAdmin,
   requireActivo,
 };
