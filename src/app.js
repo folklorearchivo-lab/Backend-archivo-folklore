@@ -13,12 +13,15 @@ const app = express();
 // Middlewares de seguridad y logs
 app.use(helmet());
 // Orígenes permitidos: la web pública (vite-project) y el dashboard administrativo
-// (frontend_archivo). Ambos corren con Vite en modo dev y por defecto usan el puerto
-// 5173 — si los dos están abiertos al mismo tiempo, Vite asigna 5174 al segundo.
-// Se listan ambos puertos para cubrir cualquiera de los dos casos.
+// (frontend_archivo). En local, ambos corren con Vite y por defecto usan el puerto
+// 5173 — si los dos están abiertos al mismo tiempo, Vite asigna 5174 al segundo, por
+// eso se listan ambos como respaldo. En producción, los dominios reales (Netlify) se
+// agregan vía la variable de entorno ALLOWED_ORIGINS (separados por coma), sin tener
+// que tocar este archivo cada vez que cambie un dominio.
 const ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://localhost:5174',
+  ...(process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()) : []),
 ];
 
 app.use(cors({
