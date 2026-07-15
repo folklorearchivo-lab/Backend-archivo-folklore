@@ -54,6 +54,11 @@ app.use('/api', (req, res, next) => {
 // Rutas de la API
 app.use('/api', routes);
 
+// Ruta raíz
+app.get('/', (req, res) => {
+  res.json({ message: 'API Archivo de Folklore está funcionando', version: '1.0.0', docs: '/api/docs' });
+});
+
 // Middleware para rutas inexistentes
 app.use(notFound);
 
